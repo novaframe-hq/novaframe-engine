@@ -30,8 +30,8 @@ Tauri v2 (Rust in `src-tauri/`) · frontend in `src/` · plugins: fs, store, upd
 ## Rules
 - **Updater signing keys are sacred.** Never regenerate, print, or commit private keys (`generate_keys.exp` exists for setup only). Breaking the key chain bricks auto-update for existing users.
 - Rust changes: keep `src-tauri` warnings clean; run `cargo check` before claiming done.
-- Distribution/update flow: `PLAN-engine-distribution-and-updates.md`. Settings work: `PLAN-settings-final-touches.md`, `PLAN-wallpaper-settings-and-asset-fixes.md`.
-- DRM/device locking must match `~/marketplace-backend/PLAN-drm-device-locking.md`.
+- Distribution/update flow: `docs/plans/PLAN-engine-distribution-and-updates.md`. Settings work: `docs/plans/PLAN-settings-final-touches.md`, `docs/plans/PLAN-wallpaper-settings-and-asset-fixes.md`.
+- DRM/device locking must match `~/marketplace-backend/docs/plans/PLAN-drm-device-locking.md`.
 
 ## Settings Panel UI & Layout Rules
 - **Header Layout**: `.panel-header` must align 22px Logo + 14px "Novaframe Engine" title (`#ffffff`, `white-space: nowrap`) + 24px Red X button on 1 single row.
