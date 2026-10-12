@@ -270,7 +270,7 @@ curl -X POST "https://webcatalog.io/submit" \
 | `webcatalog` | WebCatalog | Class A | **ENDPOINT RETIRED** | `https://webcatalog.io/submit` | 307 Redirect to `/en/submit` -> 404 Not Found. Directory moved to closed catalog. |
 | `uneed` | Uneed | Class C | Dossier Pre-Filled | Ready for account submission | `https://novaframe.co.uk/?utm_source=uneed&utm_medium=directory&utm_campaign=launch_q4` |
 | `producthunt` | Product Hunt | Class C | Dossier Pre-Filled | Ready for scheduled launch | `https://novaframe.co.uk/?utm_source=producthunt&utm_medium=directory&utm_campaign=launch_q4` |
-| `alternativeto` | AlternativeTo | Class C | Dossier Pre-Filled | Ready for manual alternative listing | `https://novaframe.co.uk/?utm_source=alternativeto&utm_medium=directory&utm_campaign=launch_q4` |
+| `alternativeto` | AlternativeTo | Class C | Submitted (Free Option) | Pending Review | `https://novaframe.co.uk/?utm_source=alternativeto&utm_medium=directory&utm_campaign=launch_q4` |
 | `saashub` | SaaSHub | Class C | Dossier Pre-Filled | Ready for manual alternative listing | `https://novaframe.co.uk/?utm_source=saashub&utm_medium=directory&utm_campaign=launch_q4` |
 | `tinylaunch` | TinyLaunch | Class C | Dossier Pre-Filled | Ready for account submission | `https://novaframe.co.uk/?utm_source=tinylaunch&utm_medium=directory&utm_campaign=launch_q4` |
 | `microlaunch` | Microlaunch | Class C | Dossier Pre-Filled | Ready for account submission | `https://novaframe.co.uk/?utm_source=microlaunch&utm_medium=directory&utm_campaign=launch_q4` |
