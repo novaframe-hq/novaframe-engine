@@ -61,7 +61,7 @@
     "updater": {
       "endpoints": [
         "https://api.novaframe.co.uk/api/engine/updates/{{target}}/{{current_version}}",
-        "https://github.com/tdaeche-gif/novaframe-engine/releases/latest/download/latest.json"
+        "https://github.com/novaframe-hq/novaframe-engine/releases/latest/download/latest.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM1NERFMzdDNTNDNTNENzMKUldSelBjVlRmT05OTmFxSWVpaEFxT3U4NFJ5L05haHJQc3NwQlZLajAydVJrNm9KS2Q4TVp6dk8K"
     }
