@@ -227,15 +227,7 @@ curl -X POST "https://webcatalog.io/submit" \
 - **Submission URL:** `https://softpedia.com/developer/upload-software.php`
 - **Category:** Desktop Enhancements / Themes & Wallpapers
 - **Platforms:** macOS, Windows 10/11
-- **License:** Freeware / Open Source
-
-### 7. Slant.co (`slant_co`)
-- **Submission URL:** `https://slant.co/topics/new`
-- **Question:** "What are the best live wallpaper apps for macOS and Windows?"
-- **Recommendation:** Novaframe Engine
-- **Pros:** Ultra-low resource usage, automatic fullscreen pause, native Rust/Tauri architecture, open source.
-
-### 8. Altern.co (`altern_co`)
+### 7. Altern.co (`altern_co`)
 - **Submission URL:** `https://altern.co/submit`
 - **Name:** Novaframe Engine
 - **Alternative For:** Wallpaper Engine
@@ -271,17 +263,14 @@ curl -X POST "https://webcatalog.io/submit" \
 | `uneed` | Uneed | Class C | Dossier Pre-Filled | Ready for account submission | `https://novaframe.co.uk/?utm_source=uneed&utm_medium=directory&utm_campaign=launch_q4` |
 | `producthunt` | Product Hunt | Class C | Dossier Pre-Filled | Ready for scheduled launch | `https://novaframe.co.uk/?utm_source=producthunt&utm_medium=directory&utm_campaign=launch_q4` |
 | `alternativeto` | AlternativeTo | Class C | Submitted (Free Option) | Pending Review | `https://novaframe.co.uk/?utm_source=alternativeto&utm_medium=directory&utm_campaign=launch_q4` |
-| `saashub` | SaaSHub | Class C | Dossier Pre-Filled | Ready for manual alternative listing | `https://novaframe.co.uk/?utm_source=saashub&utm_medium=directory&utm_campaign=launch_q4` |
+| `saashub` | SaaSHub | Class C | **SUBMITTED** | **SUBMITTED** | `https://novaframe.co.uk/?utm_source=saashub&utm_medium=directory&utm_campaign=launch_q4` |
 | `tinylaunch` | TinyLaunch | Class C | Dossier Pre-Filled | Ready for account submission | `https://novaframe.co.uk/?utm_source=tinylaunch&utm_medium=directory&utm_campaign=launch_q4` |
 | `microlaunch` | Microlaunch | Class C | Dossier Pre-Filled | Ready for account submission | `https://novaframe.co.uk/?utm_source=microlaunch&utm_medium=directory&utm_campaign=launch_q4` |
 | `itchio` | Itch.io | Class C | Dossier Pre-Filled | Ready for desktop utility game/app publish | `https://novaframe.co.uk/?utm_source=itchio&utm_medium=directory&utm_campaign=launch_q4` |
 | `softpedia` | Softpedia | Class C | Dossier Pre-Filled | Ready for developer upload | `https://novaframe.co.uk/?utm_source=softpedia&utm_medium=directory&utm_campaign=launch_q4` |
 | `startupbase` | StartupBase | Class C | Web Portal | Days | Excluded (Manual Exclude) | 2026-10-13 | - |
-| `pitchwall` | PitchWall | Class C | Dossier Pre-Filled | Ready for account submission | `https://novaframe.co.uk/?utm_source=pitchwall&utm_medium=directory&utm_campaign=launch_q4` |
+| `pitchwall` | PitchWall | Class C | **SUBMITTED** | **SUBMITTED** | `https://novaframe.co.uk/?utm_source=pitchwall&utm_medium=directory&utm_campaign=launch_q4` |
 | `makerlog` | Makerlog | Class C | Web Portal | Instant | Excluded (Dead Service) | 2026-10-12 | - |
 | `indiehackers` | Indie Hackers | Class C | Dossier Pre-Filled | Ready for product launch | `https://novaframe.co.uk/?utm_source=indiehackers&utm_medium=directory&utm_campaign=launch_q4` |
-| `sideprojectors` | SideProjectors | Class C | Dossier Pre-Filled | Ready for listing | `https://novaframe.co.uk/?utm_source=sideprojectors&utm_medium=directory&utm_campaign=launch_q4` |
-| `betalist` | BetaList | Class C | Dossier Pre-Filled | Ready for queue submission | `https://novaframe.co.uk/?utm_source=betalist&utm_medium=directory&utm_campaign=launch_q4` |
-| `launchlist` | LaunchList | Class C | Dossier Pre-Filled | Ready for queue submission | `https://novaframe.co.uk/?utm_source=launchlist&utm_medium=directory&utm_campaign=launch_q4` |
-| `slant_co` | Slant.co | Class C | Dossier Pre-Filled | Ready for community question entry | `https://novaframe.co.uk/?utm_source=slant_co&utm_medium=directory&utm_campaign=launch_q4` |
+| `sideprojectors` | SideProjectors | Class C | **SUBMITTED** | **SUBMITTED** | `https://novaframe.co.uk/?utm_source=sideprojectors&utm_medium=directory&utm_campaign=launch_q4` |
 | `altern_co` | Altern.co | Class C | Dossier Pre-Filled | Ready for alternative entry | `https://novaframe.co.uk/?utm_source=altern_co&utm_medium=directory&utm_campaign=launch_q4` |
