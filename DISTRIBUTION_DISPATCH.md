@@ -276,9 +276,9 @@ curl -X POST "https://webcatalog.io/submit" \
 | `microlaunch` | Microlaunch | Class C | Dossier Pre-Filled | Ready for account submission | `https://novaframe.co.uk/?utm_source=microlaunch&utm_medium=directory&utm_campaign=launch_q4` |
 | `itchio` | Itch.io | Class C | Dossier Pre-Filled | Ready for desktop utility game/app publish | `https://novaframe.co.uk/?utm_source=itchio&utm_medium=directory&utm_campaign=launch_q4` |
 | `softpedia` | Softpedia | Class C | Dossier Pre-Filled | Ready for developer upload | `https://novaframe.co.uk/?utm_source=softpedia&utm_medium=directory&utm_campaign=launch_q4` |
-| `startupbase` | StartupBase | Class C | Dossier Pre-Filled | Ready for account submission | `https://novaframe.co.uk/?utm_source=startupbase&utm_medium=directory&utm_campaign=launch_q4` |
+| `startupbase` | StartupBase | Class C | Web Portal | Days | Excluded (Manual Exclude) | 2026-10-13 | - |
 | `pitchwall` | PitchWall | Class C | Dossier Pre-Filled | Ready for account submission | `https://novaframe.co.uk/?utm_source=pitchwall&utm_medium=directory&utm_campaign=launch_q4` |
-| `makerlog` | Makerlog | Class C | Dossier Pre-Filled | Ready for maker posting | `https://novaframe.co.uk/?utm_source=makerlog&utm_medium=directory&utm_campaign=launch_q4` |
+| `makerlog` | Makerlog | Class C | Web Portal | Instant | Excluded (Dead Service) | 2026-10-12 | - |
 | `indiehackers` | Indie Hackers | Class C | Dossier Pre-Filled | Ready for product launch | `https://novaframe.co.uk/?utm_source=indiehackers&utm_medium=directory&utm_campaign=launch_q4` |
 | `sideprojectors` | SideProjectors | Class C | Dossier Pre-Filled | Ready for listing | `https://novaframe.co.uk/?utm_source=sideprojectors&utm_medium=directory&utm_campaign=launch_q4` |
 | `betalist` | BetaList | Class C | Dossier Pre-Filled | Ready for queue submission | `https://novaframe.co.uk/?utm_source=betalist&utm_medium=directory&utm_campaign=launch_q4` |
