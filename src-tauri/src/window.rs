@@ -1,4 +1,5 @@
 use tauri::{AppHandle, Manager, WebviewWindow};
+use tauri_plugin_opener::OpenerExt;
 use std::sync::atomic::Ordering;
 
 use crate::dlog;
@@ -147,6 +148,13 @@ pub fn collapse_settings_panel(window: WebviewWindow) {
     }
 }
 
+const ALLOWED_STOREFRONT_HOSTS: &[&str] = &[
+    "novaframe.co.uk",
+    "www.novaframe.co.uk",
+    "checkout.stripe.com",
+    "hooks.stripe.com",
+];
+
 /// Lazily builds or focuses the storefront webview window.
 #[tauri::command]
 pub async fn open_storefront_window(app: AppHandle) -> Result<(), String> {
@@ -171,6 +179,13 @@ pub async fn open_storefront_window(app: AppHandle) -> Result<(), String> {
             let s = nav_url.as_str();
             if s.starts_with("novaframe://") {
                 crate::deeplink::process_deeplink_url(&app_handle, s);
+                return false;
+            }
+            let host_allowed = nav_url.host_str().is_some_and(|h| {
+                ALLOWED_STOREFRONT_HOSTS.contains(&h) || h.ends_with(".supabase.co")
+            });
+            if !host_allowed {
+                let _ = app_handle.opener().open_url(s, None::<&str>);
                 return false;
             }
             true

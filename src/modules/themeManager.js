@@ -236,7 +236,11 @@ export const ThemeManager = {
 
         container.appendChild(iframe);
         this.currentIframe = iframe;
-        enableMouseRelay(() => ThemeManager.currentIframe);
+        if (this.currentManifest?.interactive !== false) {
+            enableMouseRelay(() => ThemeManager.currentIframe);
+        } else {
+            disableMouseRelay();
+        }
     },
 
     unmountIframe() {

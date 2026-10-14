@@ -245,6 +245,9 @@
         if (!engineControlled) { engineControlled = true; syncLoop(); }
       }
       if (d.type === 'novaframe-settings' && d.settings) {
+        if (d.settings.fps !== undefined) {
+          setFps(d.settings.fps);
+        }
         onSettings(d.settings);
       } else if (d.type === 'novaframe-pointer') {
         onPointer(d.nx != null ? d.nx : 0.5, d.ny != null ? d.ny : 0.5, d.x || 0, d.y || 0);
@@ -260,6 +263,7 @@
 
     // Bind webglcontextlost on document canvases
     global.document.addEventListener('webglcontextlost', function (e) {
+      e.preventDefault();
       if (isHeadless && activeSessionId) {
         global.parent.postMessage({
           type: 'novaframe-error',

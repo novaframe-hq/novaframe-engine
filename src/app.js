@@ -111,6 +111,8 @@ import { DEFAULT_CONFIG, getConfig, setConfig } from './modules/state.js';
 let config = getConfig();
 
 
+let _saveDebounceTimer = null;
+
 const ConfigManager = {
     store: null,
     async init() {
@@ -144,18 +146,37 @@ const ConfigManager = {
             config = setConfig(JSON.parse(localStorage.getItem('novaframe_config')) || DEFAULT_CONFIG);
         }
     },
-    async saveConfig() {
+    async saveConfig({ immediate = true } = {}) {
         config = setConfig(config);
-        if (this.store) {
-            await this.store.set('novaframe_config', config);
-            await this.store.save();
-        }
-        localStorage.setItem('novaframe_config', JSON.stringify(config));
-
         try {
             await emit('config-changed', config);
         } catch (e) {
             console.error("[Novaframe] Config emit failed:", e);
+        }
+
+        const persist = async () => {
+            if (this.store) {
+                try {
+                    await this.store.set('novaframe_config', config);
+                    await this.store.save();
+                } catch (e) {
+                    console.error("[ConfigManager] Store save failed:", e);
+                }
+            }
+            try {
+                localStorage.setItem('novaframe_config', JSON.stringify(config));
+            } catch (_) {}
+        };
+
+        if (immediate) {
+            if (_saveDebounceTimer) {
+                clearTimeout(_saveDebounceTimer);
+                _saveDebounceTimer = null;
+            }
+            await persist();
+        } else {
+            if (_saveDebounceTimer) clearTimeout(_saveDebounceTimer);
+            _saveDebounceTimer = setTimeout(persist, 200);
         }
     },
     async getTheme() {
@@ -382,7 +403,7 @@ function updateSettingsScope(themePath) {
                     input.addEventListener('input', (e) => {
                         const val = setting.type === 'range' ? parseFloat(e.target.value) : e.target.value;
                         config.theme_settings[themePath][setting.id] = val;
-                        ConfigManager.saveConfig();
+                        ConfigManager.saveConfig({ immediate: setting.type !== 'range' });
 
                         // Live broadcast
                         if (ThemeManager.currentIframe?.contentWindow) {
@@ -392,6 +413,12 @@ function updateSettingsScope(themePath) {
                             }, '*');
                         }
                     });
+
+                    if (setting.type === 'range') {
+                        input.addEventListener('change', () => {
+                            ConfigManager.saveConfig({ immediate: true });
+                        });
+                    }
                 }
 
                 // Panel locking for selects/color pickers is handled by the
@@ -869,26 +896,6 @@ function confirmInPanel(message, confirmLabel = 'Confirm', variant = 'danger') {
     });
 }
 
-// Maps the backend's stable error codes ({ error, code }) to messages a
-// user can act on. Codes are defined in marketplace-backend/src/utils/apiError.ts.
-function friendlyApiError(data) {
-    switch (data?.code) {
-        case 'UNAUTHORIZED':
-            return "Your session could not be verified. Please open the marketplace and sign in again.";
-        case 'TOKEN_EXPIRED':
-            return "This install link has expired. Please click Apply on the wallpaper again in the marketplace.";
-        case 'NOT_PURCHASED':
-            return "This wallpaper hasn't been purchased on your account. If you just bought it, wait a few seconds and try again.";
-        case 'DEVICE_LIMIT':
-            return "You've reached the 2-device limit for this wallpaper. Open My Vault in the marketplace to reset your devices, then try again.";
-        case 'NOT_FOUND':
-            return "This wallpaper is no longer available in the marketplace.";
-        case 'SERVER_ERROR':
-            return "The marketplace server hit a problem. Please try again in a minute.";
-        default:
-            return "License verification failed: " + (data?.error || "unknown error");
-    }
-}
 
 // Guard so the deep-link listener is bound exactly once per JS context. Deep
 // links (novaframe://apply?token=…) are emitted from Rust to ALL windows; only
@@ -913,14 +920,16 @@ async function processApplyQueue() {
         try {
             const applyTask = invoke('handle_engine_apply', { token });
             const timeoutTask = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Engine apply timed out after 15s')), 15000)
+                setTimeout(() => reject(new Error('Engine apply timed out after 190s')), 190000)
             );
             const installedThemeId = await Promise.race([applyTask, timeoutTask]);
             console.log(TAG, stamp, `✅ Rust handle_engine_apply returned dir=${installedThemeId}`);
 
             const themesDir = await getThemesDir();
             const absoluteThemePath = `${themesDir}/${installedThemeId}`;
+            await scanThemes();
             await ConfigManager.setTheme(absoluteThemePath);
+            updateSettingsScope(absoluteThemePath);
             console.log(TAG, stamp, 'ConfigManager.setTheme ok.');
         } catch (err) {
             console.error(TAG, stamp, '❌ handle_engine_apply failed:', err);
@@ -1023,10 +1032,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     listen('theme-installed', async (event) => {
         const absoluteThemePath = event.payload;
         console.log("[Novaframe] Received theme-installed event with path:", absoluteThemePath);
-        await ConfigManager.setTheme(absoluteThemePath);
         if (isSettingsWindow()) {
-            window.location.reload();
+            await scanThemes();
+            await ConfigManager.setTheme(absoluteThemePath);
+            updateSettingsScope(absoluteThemePath);
         } else {
+            await ConfigManager.setTheme(absoluteThemePath);
             ThemeManager.loadTheme(absoluteThemePath);
         }
     });
