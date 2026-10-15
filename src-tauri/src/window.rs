@@ -3,7 +3,10 @@ use tauri_plugin_opener::OpenerExt;
 use std::sync::atomic::Ordering;
 
 use crate::dlog;
-use crate::state::{MANUAL_PAUSE, COLLAPSED_WIDTH, COLLAPSED_HEIGHT, recompute_wallpaper_visibility};
+use crate::state::{
+    COLLAPSED_HEIGHT, COLLAPSED_WIDTH, MANUAL_PAUSE, SETTINGS_PANEL_EXPANDED,
+    recompute_wallpaper_visibility,
+};
 
 /// Build the system-tray icon + menu (Show Settings / Pause / Quit). Best-effort:
 /// logs and returns on failure rather than aborting startup.
@@ -94,6 +97,12 @@ pub fn place_settings_window(
         }
     }
 
+    // On Linux GTK3, tao skips gtk_window_resize() when resizable is false,
+    // leaving the window stuck at GTK's 200x200 default size.
+    #[cfg(target_os = "linux")]
+    let _ = window.set_resizable(true);
+
+    let _ = window.set_min_size(Some(tauri::Size::Physical(tauri::PhysicalSize::new(1, 1))));
     let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize::new(
         target_w, target_h,
     )));
@@ -142,6 +151,7 @@ pub fn place_settings_window(
 /// raising the panel IS the user's explicit intent.
 #[tauri::command]
 pub fn expand_settings_panel(window: WebviewWindow) {
+    SETTINGS_PANEL_EXPANDED.store(true, Ordering::Relaxed);
     if let Ok(Some(monitor)) = window.current_monitor() {
         place_settings_window(&window, &monitor, 360.0, 650.0);
     }
@@ -150,6 +160,7 @@ pub fn expand_settings_panel(window: WebviewWindow) {
 /// Collapses the settings panel webview to its minimal width.
 #[tauri::command]
 pub fn collapse_settings_panel(window: WebviewWindow) {
+    SETTINGS_PANEL_EXPANDED.store(false, Ordering::Relaxed);
     if let Ok(Some(monitor)) = window.current_monitor() {
         place_settings_window(&window, &monitor, COLLAPSED_WIDTH, COLLAPSED_HEIGHT);
     }
@@ -258,15 +269,17 @@ pub fn adjust_window_layouts(app: &AppHandle) {
                 let logical_size = monitor.size().to_logical::<f64>(scale_factor);
                 let logical_pos = monitor.position().to_logical::<f64>(scale_factor);
 
-                // Added idempotence check (MiniMax Audit Finding D) to eliminate repaint churn on macOS
+                // Added idempotence check (MiniMax Audit Finding D) to eliminate repaint churn on macOS.
+                // On Linux X11, a top panel strut (e.g. 27px bar) can offset y or clamp height slightly.
+                let y_slack = if cfg!(target_os = "linux") { 64.0 } else { 1.0 };
                 let already_placed = match (window.outer_position(), window.outer_size()) {
                     (Ok(p), Ok(s)) => {
                         let current_pos = p.to_logical::<f64>(scale_factor);
                         let current_size = s.to_logical::<f64>(scale_factor);
                         (current_pos.x - logical_pos.x).abs() < 1.0 &&
-                        (current_pos.y - logical_pos.y).abs() < 1.0 &&
+                        (current_pos.y - logical_pos.y).abs() <= y_slack &&
                         (current_size.width - logical_size.width).abs() < 1.0 &&
-                        (current_size.height - logical_size.height).abs() < 1.0
+                        (current_size.height - logical_size.height).abs() <= y_slack
                     }
                     _ => false,
                 };
@@ -293,12 +306,7 @@ pub fn adjust_window_layouts(app: &AppHandle) {
                 #[cfg(target_os = "linux")]
                 let _ = settings_window.set_visible_on_all_workspaces(true);
 
-                let current_width = if let Ok(size) = settings_window.inner_size() {
-                    size.to_logical::<f64>(scale_factor).width
-                } else {
-                    25.0
-                };
-                let expanded = current_width > 150.0;
+                let expanded = SETTINGS_PANEL_EXPANDED.load(Ordering::Relaxed);
                 let target_width = if expanded { 360.0 } else { COLLAPSED_WIDTH };
                 let target_height = if expanded { 650.0 } else { COLLAPSED_HEIGHT };
                 place_settings_window(&settings_window, &monitor, target_width, target_height);

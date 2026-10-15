@@ -105,8 +105,9 @@ html[data-mode="settings"] #onboardingOverlay { display: none !important; }
        or taller tab leaves transparent bands that Windows renders as a faint
        box (layered windows aren't truly transparent there, unlike macOS
        compositing). Cog stays centered via flex. */
-    top: 0;
-    height: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 30px;
     width: 30px;
     margin-top: 0;
     /* Square (no radius) so the wallpaper can't bleed through rounded corners,
@@ -177,14 +178,14 @@ html[data-mode="settings"] #onboardingOverlay { display: none !important; }
     box-sizing: border-box;
 }
 
-@media (max-width: 100px) {
+@media (max-width: 200px) {
     /* Collapsed window (~30px): cog is the only visible affordance. */
     .panel-content {
         opacity: 0;
         pointer-events: none;
     }
 }
-@media (min-width: 101px) {
+@media (min-width: 201px) {
     /* Expanded window (~360px): show the panel and HIDE the cog so there's no
        leftover overlay above/below it inside the open panel. The cog reserves a
        40px column while collapsed; once it's hidden the panel must fill that

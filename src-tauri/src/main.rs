@@ -165,11 +165,27 @@ fn ping_first_run_and_open_welcome(app: tauri::AppHandle) {
             .await;
     });
 
+    #[cfg(target_os = "linux")]
+    let should_open_welcome = std::process::Command::new("xdg-settings")
+        .args(["get", "default-web-browser"])
+        .output()
+        .ok()
+        .filter(|out| out.status.success())
+        .map(|out| String::from_utf8_lossy(&out.stdout).trim().ends_with(".desktop"))
+        .unwrap_or(false);
+
+    #[cfg(not(target_os = "linux"))]
+    let should_open_welcome = true;
+
     // Use the already-installed Tauri opener plugin instead of introducing a
     // second URL-opening dependency. The browser handoff is best effort and
     // only happens after the marker is written, so restart cannot duplicate it.
-    if let Err(e) = app.opener().open_url(&welcome_url, None::<&str>) {
-        dlog(&app, &format!("[first-run] failed to open welcome URL: {}", e));
+    if should_open_welcome {
+        if let Err(e) = app.opener().open_url(&welcome_url, None::<&str>) {
+            dlog(&app, &format!("[first-run] failed to open welcome URL: {}", e));
+        }
+    } else {
+        dlog(&app, "[first-run] skipped welcome URL open (no default Linux browser configured)");
     }
 }
 

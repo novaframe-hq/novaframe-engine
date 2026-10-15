@@ -7,6 +7,7 @@ pub static LAST_DEEPLINK_SEEN: Mutex<Option<(String, Instant)>> = Mutex::new(Non
 pub static PENDING_DEEPLINK_TOKEN: Mutex<Option<String>> = Mutex::new(None);
 
 pub static SETTINGS_PANEL_LOCKED: AtomicBool = AtomicBool::new(false);
+pub static SETTINGS_PANEL_EXPANDED: AtomicBool = AtomicBool::new(false);
 
 pub const COLLAPSED_WIDTH: f64 = 30.0;
 pub const COLLAPSED_HEIGHT: f64 = 30.0;
