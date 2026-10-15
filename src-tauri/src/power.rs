@@ -54,6 +54,12 @@ fn linux_running_on_battery(power_supply_dir: &Path) -> bool {
 
     entries.filter_map(Result::ok).any(|entry| {
         let path = entry.path();
+        let is_device_scope = std::fs::read_to_string(path.join("scope"))
+            .ok()
+            .is_some_and(|value| value.trim().eq_ignore_ascii_case("Device"));
+        if is_device_scope {
+            return false;
+        }
         let is_battery = std::fs::read_to_string(path.join("type"))
             .ok()
             .is_some_and(|value| value.trim().eq_ignore_ascii_case("Battery"));
@@ -155,6 +161,17 @@ mod tests {
         assert!(!linux_running_on_battery(temp.path()));
 
         write_supply(temp.path(), "BAT1", "Battery", "Discharging");
+        assert!(linux_running_on_battery(temp.path()));
+    }
+
+    #[test]
+    fn ignores_peripheral_device_batteries() {
+        let temp = TempSupplyDir::new();
+        write_supply(temp.path(), "hid-mouse-battery", "Battery", "Discharging");
+        fs::write(temp.path().join("hid-mouse-battery").join("scope"), "Device\n").unwrap();
+        assert!(!linux_running_on_battery(temp.path()));
+
+        fs::write(temp.path().join("hid-mouse-battery").join("scope"), "System\n").unwrap();
         assert!(linux_running_on_battery(temp.path()));
     }
 

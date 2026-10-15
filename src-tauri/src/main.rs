@@ -818,12 +818,22 @@ fn main() {
             {
                 let pause_handle = handle.clone();
                 std::thread::spawn(move || {
+                    const FAST_MS: u64 = 1_000;
+                    const IDLE_MS: u64 = 5_000;
+                    const STABLE_TICKS_BEFORE_BACKOFF: u32 = 5;
+
                     let mut last_paused = false;
+                    let mut stable_ticks: u32 = 0;
                     loop {
                         if state::SHUTDOWN_SIGNAL.load(Ordering::Relaxed) {
                             break;
                         }
-                        std::thread::sleep(std::time::Duration::from_secs(2));
+                        let interval = if stable_ticks >= STABLE_TICKS_BEFORE_BACKOFF {
+                            IDLE_MS
+                        } else {
+                            FAST_MS
+                        };
+                        std::thread::sleep(std::time::Duration::from_millis(interval));
 
                         let paused = match linux_active_window_pauses_wallpaper() {
                             Ok(paused) => paused,
@@ -842,10 +852,13 @@ fn main() {
                         };
                         if paused != last_paused {
                             last_paused = paused;
+                            stable_ticks = 0;
                             FULLSCREEN_ACTIVE.store(paused, Ordering::Relaxed);
                             WINDOW_OCCLUDED.store(false, Ordering::Relaxed);
                             recompute_wallpaper_visibility(&pause_handle);
                             dlog(&pause_handle, &format!("[pause] Linux active window fullscreen/maximized={}", paused));
+                        } else {
+                            stable_ticks = stable_ticks.saturating_add(1);
                         }
                     }
                 });
@@ -1062,7 +1075,7 @@ fn main() {
                 // thread only re-fires when the monitor set *changes*, so a static
                 // display never self-corrects. Re-assert the layout a few times
                 // over the first ~1.3s to win the race against the reparent reset.
-                #[cfg(target_os = "windows")]
+                #[cfg(any(target_os = "windows", target_os = "linux"))]
                 {
                     let retry_handle = handle.clone();
                     std::thread::spawn(move || {

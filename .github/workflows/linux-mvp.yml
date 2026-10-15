@@ -41,7 +41,7 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt
+          components: rustfmt, clippy
 
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
@@ -62,6 +62,9 @@ jobs:
 
       - name: Test Rust crate
         run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: Clippy Rust crate
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 
       - name: Build deb and rpm bundles
         run: npm run tauri -- build --bundles deb,rpm --config '{"bundle":{"createUpdaterArtifacts":false}}'
