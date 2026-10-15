@@ -640,6 +640,8 @@ fn main() {
         }
     }
 
+    eprintln!("[Novaframe] main() pre-builder init");
+
     let builder = tauri::Builder::default()
         // Must be the first plugin registered. Without it, clicking a
         // novaframe:// deep link on Windows launches a second full engine

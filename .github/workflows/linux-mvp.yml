@@ -35,6 +35,7 @@ jobs:
             desktop-file-utils \
             x11-utils \
             xvfb \
+            dbus-x11 \
             rpm \
             libayatana-appindicator3-1
 
@@ -74,10 +75,17 @@ jobs:
         run: |
           set -euo pipefail
           export XDG_DATA_HOME="$RUNNER_TEMP/novaframe-smoke-data"
+          export APP_DATA="$XDG_DATA_HOME/com.novaframe.desktop.wallpaper"
+          export LOG_FILE="$APP_DATA/engine-debug.log"
           rm -rf "$XDG_DATA_HOME"
           mkdir -p "$XDG_DATA_HOME"
 
-          xvfb-run -a -s "-screen 0 1920x1080x24" bash -euo pipefail -c '
+          export NO_AT_BRIDGE=1
+          export LIBGL_ALWAYS_SOFTWARE=1
+          export WEBKIT_DISABLE_COMPOSITING_MODE=1
+
+          dbus-run-session -- xvfb-run -a -s "-screen 0 1920x1080x24" bash -euo pipefail -c '
+            echo "DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS:-<unset>}"
             ./src-tauri/target/release/novaframe_engine &
             app_pid=$!
             cleanup() {
@@ -85,12 +93,29 @@ jobs:
               wait "$app_pid" 2>/dev/null || true
             }
             trap cleanup EXIT
-            sleep 5
-            kill -0 "$app_pid"
-          '
 
-          APP_DATA="$XDG_DATA_HOME/com.novaframe.desktop.wallpaper"
-          LOG_FILE="$APP_DATA/engine-debug.log"
+            ready=0
+            for i in $(seq 1 30); do
+              if ! kill -0 "$app_pid" 2>/dev/null; then
+                echo "::error::novaframe_engine exited prematurely at tick ${i}s"
+                exit 1
+              fi
+              if [ -f "$LOG_FILE" ] && grep -q "\[Novaframe\] main POST-underlay:" "$LOG_FILE"; then
+                echo "Engine reached POST-underlay readiness in ${i}s"
+                ready=1
+                break
+              fi
+              sleep 1
+            done
+
+            if [ "$ready" -ne 1 ]; then
+              echo "::error::Engine did not reach POST-underlay within 30s"
+              ps -ef | grep -E "novaframe|WebKit|Xvfb|dbus" || true
+              ls -laR "$XDG_DATA_HOME" || true
+              [ -f "$LOG_FILE" ] && cat "$LOG_FILE" || true
+              exit 1
+            fi
+          '
 
           echo "=== engine-debug.log ==="
           cat "$LOG_FILE"
