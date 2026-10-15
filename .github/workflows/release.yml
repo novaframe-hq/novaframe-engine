@@ -24,9 +24,30 @@ jobs:
           - platform: macos-latest
             # Universal binary: one artifact for Apple Silicon + Intel.
             args: '--target universal-apple-darwin'
+          - platform: ubuntu-22.04
+            args: '--bundles deb,rpm --config {"bundle":{"createUpdaterArtifacts":false}}'
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
+      - name: install Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libwebkit2gtk-4.1-dev \
+            xdg-utils \
+            desktop-file-utils \
+            x11-utils \
+            rpm \
+            libayatana-appindicator3-1
       - name: setup node
         uses: actions/setup-node@v4
         with:
@@ -81,16 +102,20 @@ jobs:
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           mkdir assets && cd assets
           gh release download "app-v$VERSION" --repo "$GITHUB_REPOSITORY" \
-            --pattern '*.exe' --pattern '*.dmg'
+            --pattern '*.exe' --pattern '*.dmg' --pattern '*.deb' --pattern '*.rpm'
           ls -la
       - name: upload installers to Supabase storage
         run: |
           cd assets
           WIN_FILE=$(ls *.exe | head -1)
           MAC_FILE=$(ls *.dmg | head -1)
+          DEB_FILE=$(ls *.deb | head -1)
+          RPM_FILE=$(ls *.rpm | head -1)
           WIN_DEST="NovaframeEngine-Setup-$VERSION.exe"
           MAC_DEST="NovaframeEngine-$VERSION.dmg"
-          for pair in "$WIN_FILE:$WIN_DEST" "$MAC_FILE:$MAC_DEST"; do
+          DEB_DEST="NovaframeEngine-$VERSION-amd64.deb"
+          RPM_DEST="NovaframeEngine-$VERSION-x86_64.rpm"
+          for pair in "$WIN_FILE:$WIN_DEST" "$MAC_FILE:$MAC_DEST" "$DEB_FILE:$DEB_DEST" "$RPM_FILE:$RPM_DEST"; do
             SRC="${pair%%:*}"; DEST="${pair##*:}"
             echo "Uploading $SRC -> $DEST"
             curl -sf -X POST \
@@ -102,15 +127,23 @@ jobs:
           done
           echo "WIN_DEST=$WIN_DEST" >> "$GITHUB_ENV"
           echo "MAC_DEST=$MAC_DEST" >> "$GITHUB_ENV"
+          echo "DEB_DEST=$DEB_DEST" >> "$GITHUB_ENV"
+          echo "RPM_DEST=$RPM_DEST" >> "$GITHUB_ENV"
       - name: publish checksums
         run: |
           cd assets
           WIN_SHA=$(shasum -a 256 *.exe | cut -d' ' -f1)
           MAC_SHA=$(shasum -a 256 *.dmg | cut -d' ' -f1)
+          DEB_SHA=$(shasum -a 256 *.deb | cut -d' ' -f1)
+          RPM_SHA=$(shasum -a 256 *.rpm | cut -d' ' -f1)
           echo "WIN_SHA=$WIN_SHA" >> "$GITHUB_ENV"
           echo "MAC_SHA=$MAC_SHA" >> "$GITHUB_ENV"
+          echo "DEB_SHA=$DEB_SHA" >> "$GITHUB_ENV"
+          echo "RPM_SHA=$RPM_SHA" >> "$GITHUB_ENV"
           echo "sha256(windows) = $WIN_SHA"
           echo "sha256(macos)   = $MAC_SHA"
+          echo "sha256(deb)     = $DEB_SHA"
+          echo "sha256(rpm)     = $RPM_SHA"
 
       - name: mark version as latest in engine_releases
         run: |

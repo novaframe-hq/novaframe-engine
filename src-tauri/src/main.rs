@@ -1112,7 +1112,7 @@ fn main() {
                 // panel content (everything except the cog + panel body) shows as
                 // a solid block — the cog appears to have "its own section". The
                 // main window already does this; the settings window was missed.
-                #[cfg(target_os = "windows")]
+                #[cfg(any(target_os = "windows", target_os = "linux"))]
                 {
                     let _ = settings_window.set_background_color(Some(tauri::window::Color(0, 0, 0, 0)));
                 }
