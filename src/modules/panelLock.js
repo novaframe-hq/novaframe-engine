@@ -9,11 +9,30 @@ export function setPanelLocked(locked) {
 
 export function initPanelLockDelegation() {
     const matches = (t) => t instanceof Element && t.closest(POPUP_CONTROLS);
-    document.addEventListener('mousedown', (e) => { if (matches(e.target)) setPanelLocked(true); }, true);
-    document.addEventListener('focusin',  (e) => { if (matches(e.target)) setPanelLocked(true); });
-    document.addEventListener('change',   (e) => { if (matches(e.target)) setPanelLocked(false); });
+    let popupLocked = false;
+    const lockPopup = () => {
+        popupLocked = true;
+        setPanelLocked(true);
+    };
+    const unlockPopup = () => {
+        if (!popupLocked) return;
+        popupLocked = false;
+        setPanelLocked(false);
+    };
+
+    document.addEventListener('mousedown', (e) => {
+        if (matches(e.target)) lockPopup();
+        else unlockPopup();
+    }, true);
+    document.addEventListener('focusin',  (e) => { if (matches(e.target)) lockPopup(); });
+    document.addEventListener('change',   (e) => { if (matches(e.target)) unlockPopup(); });
+    document.addEventListener('keydown',  (e) => { if (e.key === 'Escape') unlockPopup(); }, true);
     document.addEventListener('focusout', (e) => {
         if (!matches(e.target)) return;
-        setTimeout(() => { if (document.hasFocus()) setPanelLocked(false); }, 0);
+        setTimeout(() => {
+            if (document.hasFocus() && !matches(document.activeElement)) {
+                unlockPopup();
+            }
+        }, 100);
     });
 }

@@ -80,6 +80,11 @@ export async function checkAndInstallUpdate({ silent }) {
         setStatus(`v${update.version} installed! Click Restart to apply.`, '#10b981');
     } catch (err) {
         setBtnText('Check for Updates');
+        const msg = String(err?.message || err || '');
+        if (/linux|appimage|unsupported/i.test(msg)) {
+            setStatus('You are on the latest version.', '#10b981');
+            return;
+        }
         throw err;
     }
 }

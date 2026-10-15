@@ -42,10 +42,6 @@ tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 futures-util = "0.3.32"
 tokio = { version = "1.52.3", features = ["full"] }
 
-[target.'cfg(target_os = "linux")'.dependencies]
-# Read GTK/GDK's X11 window state for Linux fullscreen/maximized pause detection.
-gtk = { version = "0.18", features = ["v3_24"] }
-
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6.4"
 objc2-foundation = "0.3.2"

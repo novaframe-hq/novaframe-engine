@@ -3,8 +3,8 @@ use crate::dlog;
 #[cfg(any(target_os = "linux", test))]
 use std::path::Path;
 use crate::state::{
-    BATTERY_SAVER_ENABLED, FULLSCREEN_ACTIVE, MANUAL_PAUSE, ON_BATTERY, WINDOW_OCCLUDED,
-    recompute_wallpaper_visibility,
+    BATTERY_SAVER_ENABLED, FULLSCREEN_ACTIVE, MANUAL_PAUSE, ON_BATTERY, SHUTDOWN_SIGNAL,
+    WINDOW_OCCLUDED, recompute_wallpaper_visibility,
 };
 
 /// True when the machine is running on battery rather than mains power.
@@ -96,7 +96,13 @@ pub fn spawn_battery_monitor(app: tauri::AppHandle) {
         ON_BATTERY.store(last, Ordering::Relaxed);
         dlog(&app, &format!("[pause] power source at startup: on battery={}", last));
         loop {
+            if SHUTDOWN_SIGNAL.load(Ordering::Relaxed) {
+                break;
+            }
             std::thread::sleep(std::time::Duration::from_secs(60));
+            if SHUTDOWN_SIGNAL.load(Ordering::Relaxed) {
+                break;
+            }
             let on_battery = running_on_battery();
             if on_battery != last {
                 last = on_battery;

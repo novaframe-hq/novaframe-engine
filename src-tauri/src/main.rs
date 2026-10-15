@@ -55,7 +55,6 @@ fn log_from_js(app: tauri::AppHandle, message: String) {
 #[tauri::command]
 fn quit_engine(app: tauri::AppHandle) {
     println!("[Novaframe] quit_engine invoked — exiting.");
-    #[cfg(target_os = "linux")]
     state::SHUTDOWN_SIGNAL.store(true, Ordering::Relaxed);
     // Failsafe: if exit handling wedges (e.g. a WebView2 teardown hang on
     // Windows), hard-kill the process after 2s so the user never needs
@@ -942,10 +941,19 @@ fn main() {
             let handle_clone = handle.clone();
             std::thread::spawn(move || {
                 let mut last_monitors_hash = String::new();
-                #[cfg_attr(not(target_os = "windows"), allow(unused_mut, unused_variables))]
+                #[cfg_attr(
+                    not(any(target_os = "windows", target_os = "linux")),
+                    allow(unused_mut, unused_variables)
+                )]
                 let mut last_drift_attempt = String::new();
                 loop {
+                    if state::SHUTDOWN_SIGNAL.load(Ordering::Relaxed) {
+                        break;
+                    }
                     std::thread::sleep(std::time::Duration::from_secs(2));
+                    if state::SHUTDOWN_SIGNAL.load(Ordering::Relaxed) {
+                        break;
+                    }
                     if let Ok(monitors) = handle_clone.available_monitors() {
                         let mut hash = String::new();
                         for m in monitors {
@@ -953,7 +961,7 @@ fn main() {
                         }
                         if hash != last_monitors_hash {
                             last_monitors_hash = hash;
-                            #[cfg(target_os = "windows")]
+                            #[cfg(any(target_os = "windows", target_os = "linux"))]
                             last_drift_attempt.clear();
                             window::adjust_window_layouts(&handle_clone);
                         }
@@ -971,7 +979,7 @@ fn main() {
                     // failed correction every poll re-composites the wallpaper and
                     // the translucent settings panel over it — visible as a
                     // periodic flicker/"refresh" every few seconds.
-                    #[cfg(target_os = "windows")]
+                    #[cfg(any(target_os = "windows", target_os = "linux"))]
                     if let Some(w) = handle_clone.get_webview_window("main") {
                         if let (Ok(sz), Ok(Some(mon))) = (w.inner_size(), w.current_monitor()) {
                             let ms = mon.size();

@@ -73,7 +73,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          xvfb-run -a bash -euo pipefail -c '
+          export XDG_DATA_HOME="$RUNNER_TEMP/novaframe-smoke-data"
+          rm -rf "$XDG_DATA_HOME"
+          mkdir -p "$XDG_DATA_HOME"
+
+          xvfb-run -a -s "-screen 0 1920x1080x24" bash -euo pipefail -c '
             ./src-tauri/target/release/novaframe_engine &
             app_pid=$!
             cleanup() {
@@ -84,6 +88,26 @@ jobs:
             sleep 5
             kill -0 "$app_pid"
           '
+
+          APP_DATA="$XDG_DATA_HOME/com.novaframe.desktop.wallpaper"
+          LOG_FILE="$APP_DATA/engine-debug.log"
+
+          echo "=== engine-debug.log ==="
+          cat "$LOG_FILE"
+          echo "========================"
+
+          test -f "$APP_DATA/themes/three.min.js"
+          test -f "$APP_DATA/themes/breathing-gradient/manifest.json"
+          test -f "$APP_DATA/themes/breathing-gradient/index.html"
+          test -f "$APP_DATA/.default_theme_provisioned"
+
+          grep -q "==== engine start v" "$LOG_FILE"
+          grep -q "\[shared-runtime\] wrote three.min.js" "$LOG_FILE"
+          grep -q "\[default-theme\] provisioned" "$LOG_FILE"
+          grep -q "\[Novaframe\] main POST-underlay:" "$LOG_FILE"
+
+          ! grep -q "set_desktop_underlay failed" "$LOG_FILE"
+          ! grep -q "set_ignore_cursor_events failed" "$LOG_FILE"
 
       - name: Upload Linux installer bundles
         uses: actions/upload-artifact@v4

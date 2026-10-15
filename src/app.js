@@ -60,14 +60,14 @@ function initDualWindowSystem() {
 
         setIgnoreCursor(true);
 
-        ConfigManager.init().then(async () => {
-            const savedTheme = await ConfigManager.getTheme();
-            if (savedTheme) {
-                ThemeManager.loadTheme(savedTheme);
-            } else {
-                ThemeManager.loadTheme();
+        (async () => {
+            let savedTheme = await ConfigManager.getTheme();
+            if (!savedTheme) {
+                const themesDir = await getThemesDir();
+                savedTheme = `${themesDir}/breathing-gradient`;
             }
-        }).catch(err => console.error(err));
+            ThemeManager.loadTheme(savedTheme);
+        })().catch(err => console.error(err));
     } else if (mode === 'settings') {
         // CONTROLS MODE: full-window settings panel (300x650 dock, docked right by Rust).
         document.getElementById('container').style.display = 'none';
@@ -708,8 +708,9 @@ async function scanThemes() {
         // latency scale linearly with installed theme count. Skip hidden files and zip archives.
         const themeDirs = entries.filter(entry => {
             if (!entry?.name || entry.name.startsWith('.')) return false;
+            if (entry.isDirectory === false || entry.isFile === true) return false;
             const lower = entry.name.toLowerCase();
-            if (lower.endsWith('.zip') || lower.endsWith('.zip.imported')) return false;
+            if (lower.endsWith('.zip') || lower.endsWith('.zip.imported') || lower.endsWith('.js')) return false;
             return true;
         });
         if (themeDirs.length === 0 && entries.length > 0) {
@@ -1003,15 +1004,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     await verifyAndProvisionAppData();
     await ConfigManager.init();
-    initDualWindowSystem();
 
-    if (isSettingsWindow()) {
-        registerEngineApplyListener();
-        initSettingsUI();
-    }
-
-    // Inter-window event triggers
-    listen('theme-changed', async (event) => {
+    // Register inter-window event listeners before window init so first-run
+    // theme selection in settings can never race ahead of main's listener.
+    await listen('theme-changed', async (event) => {
         const newTheme = event.payload || null;
 
         if (isMainWindow()) {
@@ -1067,7 +1063,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    listen('occlusion-change', (event) => {
+    await listen('occlusion-change', (event) => {
         const isVisible = event.payload;
         setLastKnownOcclusion(!isVisible);
         if (ThemeManager.currentIframe) {
@@ -1082,6 +1078,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
     });
+
+    initDualWindowSystem();
+
+    if (isSettingsWindow()) {
+        registerEngineApplyListener();
+        initSettingsUI();
+    }
 });
 
 

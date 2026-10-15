@@ -101,6 +101,13 @@ pub fn place_settings_window(
         x, y,
     )));
 
+    #[cfg(target_os = "linux")]
+    {
+        let _ = window.set_always_on_top(true);
+        let _ = window.set_visible_on_all_workspaces(true);
+        let _ = window.set_skip_taskbar(true);
+    }
+
     #[cfg(target_os = "windows")]
     if let (Ok(inner), Ok(outer_pos), Ok(outer_size), Ok(inner_size)) = (
         window.inner_position(),
@@ -277,6 +284,7 @@ pub fn adjust_window_layouts(app: &AppHandle) {
             {
                 let _ = window.set_always_on_bottom(true);
                 let _ = window.set_visible_on_all_workspaces(true);
+                let _ = window.set_skip_taskbar(true);
                 let _ = window.set_focusable(false);
                 let _ = window.set_ignore_cursor_events(true);
             }
