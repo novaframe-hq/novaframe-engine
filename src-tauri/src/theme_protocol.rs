@@ -1,6 +1,12 @@
 use tauri::Manager;
 use crate::dlog;
 
+// Compile-time embedded shared runtime files for self-healing theme:// serving.
+// If either file is missing on disk (e.g. failed seeding on .deb), we serve these
+// directly and re-seed to disk so the next request hits the file system.
+static THREE_MIN_JS: &[u8] = include_bytes!("../resources/three.min.js");
+static NOVAFRAME_WALLPAPER_JS: &[u8] = include_bytes!("../resources/default-theme/novaframe-wallpaper.js");
+
 pub fn mime_for(path: &std::path::Path) -> &'static str {
     match path
         .extension()
@@ -86,6 +92,29 @@ fn allowed_cors_origin(request: &tauri::http::Request<Vec<u8>>) -> Option<String
     None
 }
 
+/// Serve embedded shared-runtime bytes, re-seeding to disk as a side-effect.
+/// Returns a 200 response with the correct Content-Type.
+fn serve_embedded(
+    app: &tauri::AppHandle,
+    cors_origin: String,
+    bytes: &'static [u8],
+    filename: &str,
+    dest: &std::path::Path,
+) -> tauri::http::Response<Vec<u8>> {
+    // Re-seed to disk so the next canonicalize() succeeds and this path is skipped.
+    if let Err(e) = std::fs::write(dest, bytes) {
+        dlog(app, &format!("[theme://] embedded re-seed failed for {}: {}", filename, e));
+    } else {
+        dlog(app, &format!("[theme://] served {} ({} bytes, embedded) and re-seeded to {:?}", filename, bytes.len(), dest));
+    }
+    tauri::http::Response::builder()
+        .status(200)
+        .header("Content-Type", "text/javascript")
+        .header("Access-Control-Allow-Origin", cors_origin)
+        .body(bytes.to_vec())
+        .unwrap()
+}
+
 pub fn handle_theme_protocol(
     app: &tauri::AppHandle,
     request: &tauri::http::Request<Vec<u8>>,
@@ -135,6 +164,23 @@ pub fn handle_theme_protocol(
     };
 
     let fs_path = std::path::PathBuf::from(&decoded);
+
+    // Self-healing: if the request is for one of the shared runtime files and
+    // the file doesn't exist on disk, serve embedded bytes immediately and
+    // re-seed rather than returning 404. canonicalize() would fail anyway, so
+    // this intercept must happen before it.
+    if let Some(fname) = fs_path.file_name().and_then(|n| n.to_str()) {
+        if fname == "three.min.js" && !fs_path.exists() {
+            if let Ok(themes_dir) = app.path().app_data_dir().map(|d| d.join("themes")) {
+                let _ = std::fs::create_dir_all(&themes_dir);
+                let dest = themes_dir.join("three.min.js");
+                return serve_embedded(app, cors_origin, THREE_MIN_JS, "three.min.js", &dest);
+            }
+        }
+        if fname == "novaframe-wallpaper.js" && !fs_path.exists() {
+            return serve_embedded(app, cors_origin, NOVAFRAME_WALLPAPER_JS, "novaframe-wallpaper.js", &fs_path);
+        }
+    }
 
     // Canonicalize to defeat ../ traversal; 404 if the file doesn't exist.
     let canon = match fs_path.canonicalize() {
@@ -213,6 +259,17 @@ pub fn handle_theme_protocol(
                 .body(bytes)
                 .unwrap()
         }
-        Err(_) => deny(404),
+        Err(_) => {
+            // Last-resort self-healing for the shared runtime files if they somehow
+            // got past the pre-canonicalize check (e.g. the file existed but was
+            // empty/corrupt and the read failed, then was deleted between the exist
+            // check and here — extremely unlikely, but handled).
+            if served_path.file_name().and_then(|n| n.to_str()) == Some("novaframe-wallpaper.js") {
+                return serve_embedded(app, cors_origin, NOVAFRAME_WALLPAPER_JS, "novaframe-wallpaper.js", &served_path);
+            }
+            deny(404)
+        }
     }
 }
+
+

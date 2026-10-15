@@ -78,7 +78,12 @@ fn quit_engine(app: tauri::AppHandle) {
 /// restart. `sync_shared_runtime` runs before this in setup(), so the shared
 /// `../three.min.js` the theme loads is already in place one level up.
 const DEFAULT_THEME_DIR: &str = "breathing-gradient";
-const DEFAULT_THEME_FILES: [&str; 3] = ["index.html", "manifest.json", "novaframe-wallpaper.js"];
+
+// Compile-time embedded fallbacks for the default theme files.
+// Used when resource_dir() fails (mismatched .deb layout, dev run, standalone binary).
+const DEFAULT_THEME_INDEX_HTML: &[u8] = include_bytes!("../resources/default-theme/index.html");
+const DEFAULT_THEME_MANIFEST_JSON: &[u8] = include_bytes!("../resources/default-theme/manifest.json");
+const DEFAULT_THEME_WALLPAPER_JS: &[u8] = include_bytes!("../resources/default-theme/novaframe-wallpaper.js");
 
 fn provision_default_theme(app: &tauri::AppHandle) {
     let app_data = match app.path().app_data_dir() {
@@ -100,21 +105,31 @@ fn provision_default_theme(app: &tauri::AppHandle) {
         return;
     }
 
-    for name in DEFAULT_THEME_FILES {
-        let src = match app.path().resolve(
-            format!("resources/default-theme/{}", name),
-            tauri::path::BaseDirectory::Resource,
-        ) {
-            Ok(p) => p,
-            Err(e) => {
-                dlog(app, &format!("[default-theme] resolve {} failed: {}", name, e));
-                return;
-            }
-        };
-        if let Err(e) = std::fs::copy(&src, dest_dir.join(name)) {
-            dlog(app, &format!("[default-theme] copy {} failed: {}", name, e));
+    // (name, embedded_bytes): primary tries resource_dir copy, falls back to embedded.
+    let files: &[(&str, &[u8])] = &[
+        ("index.html", DEFAULT_THEME_INDEX_HTML),
+        ("manifest.json", DEFAULT_THEME_MANIFEST_JSON),
+        ("novaframe-wallpaper.js", DEFAULT_THEME_WALLPAPER_JS),
+    ];
+
+    for (name, embedded) in files {
+        let dest_file = dest_dir.join(name);
+        // Primary: copy from resource_dir.
+        let copied = app
+            .path()
+            .resolve(format!("resources/default-theme/{}", name), tauri::path::BaseDirectory::Resource)
+            .ok()
+            .filter(|p| p.exists())
+            .and_then(|src| std::fs::copy(&src, &dest_file).ok());
+        if copied.is_some() {
+            continue;
+        }
+        // Fallback: write embedded bytes.
+        if let Err(e) = std::fs::write(&dest_file, embedded) {
+            dlog(app, &format!("[default-theme] write {} failed (embedded): {}", name, e));
             return;
         }
+        dlog(app, &format!("[default-theme] wrote {} ({} bytes, embedded)", name, embedded.len()));
     }
 
     // Only marked once every file landed, so a partial copy is retried next

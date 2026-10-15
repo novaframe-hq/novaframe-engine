@@ -2,6 +2,11 @@ use tauri::Manager;
 use tauri::Emitter;
 use crate::dlog;
 
+/// Embedded fallback bytes compiled into the binary.
+/// Used when the resource directory path is unavailable (standalone binary,
+/// mismatched .deb layout, or dev run without resource copying).
+static THREE_MIN_JS: &[u8] = include_bytes!("../resources/three.min.js");
+
 pub fn sync_shared_runtime(app: &tauri::AppHandle) {
     let themes_dir = match app.path().app_data_dir() {
         Ok(d) => d.join("themes"),
@@ -16,26 +21,30 @@ pub fn sync_shared_runtime(app: &tauri::AppHandle) {
     }
     let dest = themes_dir.join("three.min.js");
 
-    let src = match app
-        .path()
-        .resolve("resources/three.min.js", tauri::path::BaseDirectory::Resource)
-    {
-        Ok(p) => p,
-        Err(e) => {
-            dlog(app, &format!("[shared-runtime] resolve resource failed: {}", e));
-            return;
-        }
-    };
-
-    let src_len = std::fs::metadata(&src).map(|m| m.len()).ok();
+    // Up-to-date check against embedded size (source of truth regardless of path).
     let dest_len = std::fs::metadata(&dest).map(|m| m.len()).ok();
-    if src_len.is_some() && src_len == dest_len {
+    if dest_len == Some(THREE_MIN_JS.len() as u64) {
         return;
     }
 
-    match std::fs::copy(&src, &dest) {
-        Ok(n) => dlog(app, &format!("[shared-runtime] wrote three.min.js ({} bytes) -> {:?}", n, dest)),
-        Err(e) => dlog(app, &format!("[shared-runtime] copy failed src={:?} err={}", src, e)),
+    // Primary: copy from resource_dir (preserves update-in-place if bundler puts
+    // a newer build there).
+    let copied = app
+        .path()
+        .resolve("resources/three.min.js", tauri::path::BaseDirectory::Resource)
+        .ok()
+        .filter(|p| p.exists())
+        .and_then(|src| std::fs::copy(&src, &dest).ok());
+
+    if let Some(n) = copied {
+        dlog(app, &format!("[shared-runtime] wrote three.min.js ({} bytes) -> {:?}", n, dest));
+        return;
+    }
+
+    // Fallback: write embedded bytes so startup seeding can never fail with os error 2.
+    match std::fs::write(&dest, THREE_MIN_JS) {
+        Ok(()) => dlog(app, &format!("[shared-runtime] wrote three.min.js ({} bytes, embedded) -> {:?}", THREE_MIN_JS.len(), dest)),
+        Err(e) => dlog(app, &format!("[shared-runtime] embedded write failed: {}", e)),
     }
 }
 
