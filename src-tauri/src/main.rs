@@ -1034,6 +1034,41 @@ fn main() {
                     let _ = window.hide();
                 }
 
+                // XFCE: xfdesktop paints an opaque full-screen window on the
+                // _NET_WM_WINDOW_TYPE_DESKTOP layer that covers the underlay
+                // until it exits. Quit it (best-effort) unless the user opts out
+                // via NOVAFRAME_KEEP_XFDESKTOP.
+                #[cfg(target_os = "linux")]
+                {
+                    let xfce_env = std::env::var("XDG_CURRENT_DESKTOP")
+                        .unwrap_or_default()
+                        .to_lowercase()
+                        .contains("xfce")
+                        || std::env::var("DESKTOP_SESSION")
+                            .unwrap_or_default()
+                            .to_lowercase()
+                            .contains("xfce");
+                    let xfdesktop_running = std::process::Command::new("pgrep")
+                        .args(["-x", "xfdesktop"])
+                        .status()
+                        .map(|s| s.success())
+                        .unwrap_or(false);
+                    if (xfce_env || xfdesktop_running)
+                        && std::env::var("NOVAFRAME_KEEP_XFDESKTOP").is_err()
+                    {
+                        match std::process::Command::new("xfdesktop").arg("--quit").status() {
+                            Ok(status) => dlog(
+                                &handle,
+                                &format!("[Novaframe] xfdesktop --quit exited {}", status),
+                            ),
+                            Err(e) => dlog(
+                                &handle,
+                                &format!("[Novaframe] xfdesktop --quit failed: {}", e),
+                            ),
+                        }
+                    }
+                }
+
                 // Underlay first: on Windows this reparents the window into the
                 // desktop (WorkerW) layer, which can reset extended window
                 // styles — so apply click-through *after* it, and log failures
