@@ -830,7 +830,6 @@ fn main() {
                             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
                                 dlog(&pause_handle, "[pause] xprop not found; disabling Linux X11 pause poller");
                                 if last_paused {
-                                    last_paused = false;
                                     FULLSCREEN_ACTIVE.store(false, Ordering::Relaxed);
                                     recompute_wallpaper_visibility(&pause_handle);
                                 }

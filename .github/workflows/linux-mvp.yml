@@ -64,7 +64,7 @@ jobs:
         run: cargo test --manifest-path src-tauri/Cargo.toml
 
       - name: Build deb and rpm bundles
-        run: npm run tauri -- build --bundles deb,rpm
+        run: npm run tauri -- build --bundles deb,rpm --config '{"bundle":{"createUpdaterArtifacts":false}}'
 
       - name: Smoke-test Linux app startup under Xvfb
         shell: bash
