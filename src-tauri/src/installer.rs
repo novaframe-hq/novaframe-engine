@@ -156,6 +156,10 @@ fn extract_zip(zip_path: &std::path::Path, staging_dir: &std::path::Path) -> Res
 #[tauri::command]
 pub async fn handle_engine_apply(app: tauri::AppHandle, token: String) -> Result<String, String> {
     let _guard = INSTALL_MUTEX.lock().await;
+    #[cfg(target_os = "linux")]
+    let hardware_id = crate::system::get_hardware_id()
+        .unwrap_or_else(|_| "unknown-device".to_string());
+    #[cfg(not(target_os = "linux"))]
     let hardware_id = machine_uid::get().unwrap_or_else(|_| "unknown-device".to_string());
     dlog(&app, &format!("[engine-apply] starting verification for token len={}", token.len()));
 

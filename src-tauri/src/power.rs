@@ -1,5 +1,7 @@
 use std::sync::atomic::Ordering;
 use crate::dlog;
+#[cfg(any(target_os = "linux", test))]
+use std::path::Path;
 use crate::state::{
     BATTERY_SAVER_ENABLED, FULLSCREEN_ACTIVE, MANUAL_PAUSE, ON_BATTERY, WINDOW_OCCLUDED,
     recompute_wallpaper_visibility,
@@ -34,9 +36,32 @@ pub fn running_on_battery() -> bool {
     }
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[cfg(target_os = "linux")]
+pub fn running_on_battery() -> bool {
+    linux_running_on_battery(Path::new("/sys/class/power_supply"))
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
 pub fn running_on_battery() -> bool {
     false
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn linux_running_on_battery(power_supply_dir: &Path) -> bool {
+    let Ok(entries) = std::fs::read_dir(power_supply_dir) else {
+        return false;
+    };
+
+    entries.filter_map(Result::ok).any(|entry| {
+        let path = entry.path();
+        let is_battery = std::fs::read_to_string(path.join("type"))
+            .ok()
+            .is_some_and(|value| value.trim().eq_ignore_ascii_case("Battery"));
+        is_battery
+            && std::fs::read_to_string(path.join("status"))
+                .ok()
+                .is_some_and(|value| value.trim().eq_ignore_ascii_case("Discharging"))
+    })
 }
 
 /// Turn "pause on battery" on or off from the settings panel. Recomputes
@@ -75,4 +100,69 @@ pub fn spawn_battery_monitor(app: tauri::AppHandle) {
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::linux_running_on_battery;
+    use std::fs;
+    use std::path::Path;
+
+    struct TempSupplyDir(std::path::PathBuf);
+
+    impl TempSupplyDir {
+        fn new() -> Self {
+            static NEXT_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+            let path = std::env::temp_dir().join(format!(
+                "novaframe-power-test-{}-{}",
+                std::process::id(),
+                NEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            ));
+            fs::create_dir(&path).unwrap();
+            Self(path)
+        }
+
+        fn path(&self) -> &Path {
+            &self.0
+        }
+    }
+
+    impl Drop for TempSupplyDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn write_supply(root: &Path, name: &str, supply_type: &str, status: &str) {
+        let path = root.join(name);
+        fs::create_dir_all(&path).unwrap();
+        fs::write(path.join("type"), supply_type).unwrap();
+        fs::write(path.join("status"), status).unwrap();
+    }
+
+    #[test]
+    fn detects_discharging_battery_case_insensitively() {
+        let temp = TempSupplyDir::new();
+        write_supply(temp.path(), "BAT0", " bAtTeRy\n", " dIsChArGiNg\n");
+        assert!(linux_running_on_battery(temp.path()));
+    }
+
+    #[test]
+    fn returns_false_for_ac_or_desktop_supplies() {
+        let temp = TempSupplyDir::new();
+        write_supply(temp.path(), "AC", "Mains", "Discharging");
+        write_supply(temp.path(), "BAT0", "Battery", "Charging");
+        assert!(!linux_running_on_battery(temp.path()));
+
+        write_supply(temp.path(), "BAT1", "Battery", "Discharging");
+        assert!(linux_running_on_battery(temp.path()));
+    }
+
+    #[test]
+    fn returns_false_for_missing_directory_or_unreadable_fields() {
+        let temp = TempSupplyDir::new();
+        assert!(!linux_running_on_battery(&temp.path().join("missing")));
+        fs::create_dir(temp.path().join("BAT0")).unwrap();
+        assert!(!linux_running_on_battery(temp.path()));
+    }
 }

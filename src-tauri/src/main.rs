@@ -55,6 +55,8 @@ fn log_from_js(app: tauri::AppHandle, message: String) {
 #[tauri::command]
 fn quit_engine(app: tauri::AppHandle) {
     println!("[Novaframe] quit_engine invoked — exiting.");
+    #[cfg(target_os = "linux")]
+    state::SHUTDOWN_SIGNAL.store(true, Ordering::Relaxed);
     // Failsafe: if exit handling wedges (e.g. a WebView2 teardown hang on
     // Windows), hard-kill the process after 2s so the user never needs
     // Task Manager to get rid of the engine.
@@ -124,7 +126,11 @@ fn provision_default_theme(app: &tauri::AppHandle) {
 }
 
 fn ping_first_run_and_open_welcome(app: tauri::AppHandle) {
-    let hardware_id_opt = machine_uid::get()
+    #[cfg(target_os = "linux")]
+    let hardware_id_result = system::get_hardware_id();
+    #[cfg(not(target_os = "linux"))]
+    let hardware_id_result = machine_uid::get().map_err(|error| error.to_string());
+    let hardware_id_opt = hardware_id_result
         .ok()
         .map(|id| id.trim_matches(|c: char| c == '"' || c == '\'').trim().to_string())
         .filter(|id| !id.is_empty() && !id.eq_ignore_ascii_case("unknown-device"));
@@ -336,6 +342,136 @@ fn is_fullscreen_app_active() -> bool {
     }
 }
 
+#[cfg(target_os = "linux")]
+fn linux_active_window_pauses_wallpaper() -> Result<bool, std::io::Error> {
+    let active_window = std::process::Command::new("xprop")
+        .args(["-root", "_NET_ACTIVE_WINDOW"])
+        .output()?;
+    if !active_window.status.success() {
+        return Ok(false);
+    }
+
+    let active_window = String::from_utf8_lossy(&active_window.stdout);
+    let Some(window_id) = xprop_active_window_id(&active_window) else {
+        return Ok(false);
+    };
+    let properties = std::process::Command::new("xprop")
+        .args([
+            "-id",
+            &window_id,
+            "_NET_WM_STATE",
+            "_NET_WM_WINDOW_TYPE",
+            "_NET_WM_PID",
+            "WM_NAME",
+        ])
+        .output()?;
+    if !properties.status.success() {
+        return Ok(false);
+    }
+
+    Ok(xprop_window_pauses_wallpaper(
+        &String::from_utf8_lossy(&properties.stdout),
+        std::process::id(),
+    ))
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn xprop_active_window_id(output: &str) -> Option<String> {
+    let id = output.split_once("0x")?.1;
+    let hex = id.chars().take_while(char::is_ascii_hexdigit).collect::<String>();
+    (!hex.is_empty() && u64::from_str_radix(&hex, 16).ok()? != 0).then(|| format!("0x{hex}"))
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn xprop_window_pauses_wallpaper(output: &str, own_pid: u32) -> bool {
+    fn value<'a>(output: &'a str, property: &str) -> Option<&'a str> {
+        output
+            .lines()
+            .find(|line| line.starts_with(property))?
+            .split_once('=')
+            .map(|(_, value)| value.trim())
+    }
+
+    fn has_atom(value: &str, atom: &str) -> bool {
+        value
+            .split(|character: char| !character.is_ascii_alphanumeric() && character != '_')
+            .any(|candidate| candidate == atom)
+    }
+
+    let Some(state) = value(output, "_NET_WM_STATE") else {
+        return false;
+    };
+    let Some(window_type) = value(output, "_NET_WM_WINDOW_TYPE") else {
+        return false;
+    };
+    let Some(pid) = value(output, "_NET_WM_PID").and_then(|pid| pid.parse::<u32>().ok()) else {
+        return false;
+    };
+    let own_window = pid == own_pid
+        || value(output, "WM_NAME")
+            .is_some_and(|name| name.to_ascii_lowercase().contains("novaframe"));
+
+    if own_window
+        || has_atom(state, "_NET_WM_STATE_HIDDEN")
+        || has_atom(window_type, "_NET_WM_WINDOW_TYPE_DESKTOP")
+        || has_atom(window_type, "_NET_WM_WINDOW_TYPE_DOCK")
+    {
+        return false;
+    }
+
+    has_atom(state, "_NET_WM_STATE_FULLSCREEN")
+        || (has_atom(state, "_NET_WM_STATE_MAXIMIZED_VERT")
+            && has_atom(state, "_NET_WM_STATE_MAXIMIZED_HORZ"))
+}
+
+#[cfg(test)]
+mod linux_x11_tests {
+    use super::{xprop_active_window_id, xprop_window_pauses_wallpaper};
+
+    const ACTIVE: &str = "_NET_ACTIVE_WINDOW(WINDOW): window id # 0x3e00007\n";
+    const NORMAL: &str = "_NET_WM_STATE(ATOM) = _NET_WM_STATE_MAXIMIZED_VERT, _NET_WM_STATE_MAXIMIZED_HORZ\n_NET_WM_WINDOW_TYPE(ATOM) = _NET_WM_WINDOW_TYPE_NORMAL\n_NET_WM_PID(CARDINAL) = 4242\nWM_NAME(STRING) = \"Browser\"\n";
+
+    #[test]
+    fn parses_active_window_and_fullscreen_state() {
+        assert_eq!(xprop_active_window_id(ACTIVE), Some("0x3e00007".to_string()));
+        assert!(xprop_window_pauses_wallpaper(
+            &NORMAL.replace("_NET_WM_STATE_MAXIMIZED_VERT, _NET_WM_STATE_MAXIMIZED_HORZ", "_NET_WM_STATE_FULLSCREEN"),
+            9000,
+        ));
+    }
+
+    #[test]
+    fn pauses_only_when_both_maximized_axes_are_present() {
+        assert!(xprop_window_pauses_wallpaper(NORMAL, 9000));
+        for single_axis in ["_NET_WM_STATE_MAXIMIZED_VERT", "_NET_WM_STATE_MAXIMIZED_HORZ"] {
+            let output = NORMAL.replace(
+                "_NET_WM_STATE_MAXIMIZED_VERT, _NET_WM_STATE_MAXIMIZED_HORZ",
+                single_axis,
+            );
+            assert!(!xprop_window_pauses_wallpaper(&output, 9000));
+        }
+    }
+
+    #[test]
+    fn ignores_hidden_desktop_dock_and_own_windows() {
+        for (find, replace) in [
+            ("_NET_WM_STATE_MAXIMIZED_VERT, _NET_WM_STATE_MAXIMIZED_HORZ", "_NET_WM_STATE_HIDDEN, _NET_WM_STATE_MAXIMIZED_VERT, _NET_WM_STATE_MAXIMIZED_HORZ"),
+            ("_NET_WM_WINDOW_TYPE_NORMAL", "_NET_WM_WINDOW_TYPE_DESKTOP"),
+            ("_NET_WM_WINDOW_TYPE_NORMAL", "_NET_WM_WINDOW_TYPE_DOCK"),
+            ("4242", "9000"),
+        ] {
+            let output = NORMAL.replace(find, replace);
+            assert!(!xprop_window_pauses_wallpaper(&output, 9000));
+        }
+    }
+
+    #[test]
+    fn missing_or_zero_active_window_fails_open() {
+        assert_eq!(xprop_active_window_id("_NET_ACTIVE_WINDOW(WINDOW): 0x0"), None);
+        assert_eq!(xprop_active_window_id("_NET_ACTIVE_WINDOW: not found"), None);
+    }
+}
+
 #[cfg(target_os = "windows")]
 fn is_fullscreen_app_active() -> bool {
     use windows::Win32::UI::Shell::{
@@ -493,7 +629,19 @@ fn desktop_is_covered() -> bool {
 
 
 fn main() {
-    tauri::Builder::default()
+    #[cfg(target_os = "linux")]
+    {
+        if std::env::var("NOVAFRAME_NATIVE_WAYLAND").is_err()
+            && std::env::var_os("GDK_BACKEND").is_none()
+        {
+            std::env::set_var("GDK_BACKEND", "x11");
+        }
+        if std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").is_err() {
+            std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+        }
+    }
+
+    let builder = tauri::Builder::default()
         // Must be the first plugin registered. Without it, clicking a
         // novaframe:// deep link on Windows launches a second full engine
         // instance (two wallpaper windows, doubled CPU, orphan settings
@@ -663,6 +811,47 @@ fn main() {
                 });
             }
 
+            // Linux/X11: inspect the active EWMH window's state and type.
+            // Subprocess errors fail open; a missing xprop binary is logged once
+            // and disables this poller instead of spawning it again indefinitely.
+            #[cfg(target_os = "linux")]
+            {
+                let pause_handle = handle.clone();
+                std::thread::spawn(move || {
+                    let mut last_paused = false;
+                    loop {
+                        if state::SHUTDOWN_SIGNAL.load(Ordering::Relaxed) {
+                            break;
+                        }
+                        std::thread::sleep(std::time::Duration::from_secs(2));
+
+                        let paused = match linux_active_window_pauses_wallpaper() {
+                            Ok(paused) => paused,
+                            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                                dlog(&pause_handle, "[pause] xprop not found; disabling Linux X11 pause poller");
+                                if last_paused {
+                                    last_paused = false;
+                                    FULLSCREEN_ACTIVE.store(false, Ordering::Relaxed);
+                                    recompute_wallpaper_visibility(&pause_handle);
+                                }
+                                break;
+                            }
+                            Err(error) => {
+                                dlog(&pause_handle, &format!("[pause] Linux X11 state unavailable; failing open: {}", error));
+                                false
+                            }
+                        };
+                        if paused != last_paused {
+                            last_paused = paused;
+                            FULLSCREEN_ACTIVE.store(paused, Ordering::Relaxed);
+                            WINDOW_OCCLUDED.store(false, Ordering::Relaxed);
+                            recompute_wallpaper_visibility(&pause_handle);
+                            dlog(&pause_handle, &format!("[pause] Linux active window fullscreen/maximized={}", paused));
+                        }
+                    }
+                });
+            }
+
             // macOS: poll the wallpaper window's occlusion state AND the
             // fullscreen-app heuristic. Both must run on the main thread —
             // AppKit is not thread-safe — so they ride the app's own event loop
@@ -797,6 +986,16 @@ fn main() {
             });
 
             if let Some(window) = app.get_webview_window("main") {
+                // GTK window type hints are most reliable before the window is
+                // mapped. The configured main window starts visible, so briefly
+                // unmap it while applying the Linux desktop-underlay hint.
+                #[cfg(target_os = "linux")]
+                let was_visible = window.is_visible().unwrap_or(false);
+                #[cfg(target_os = "linux")]
+                if was_visible {
+                    let _ = window.hide();
+                }
+
                 // Underlay first: on Windows this reparents the window into the
                 // desktop (WorkerW) layer, which can reset extended window
                 // styles — so apply click-through *after* it, and log failures
@@ -804,6 +1003,26 @@ fn main() {
                 // full-screen window sitting over the desktop eating clicks).
                 if let Err(e) = window.set_desktop_underlay(true) {
                     dlog(&handle, &format!("[Novaframe] set_desktop_underlay failed: {}", e));
+                }
+
+                #[cfg(target_os = "linux")]
+                {
+                    if let Err(e) = window.set_always_on_bottom(true) {
+                        dlog(&handle, &format!("[Novaframe] main keep-below failed: {}", e));
+                    }
+                }
+                #[cfg(target_os = "linux")]
+                {
+                    if let Err(e) = window.set_visible_on_all_workspaces(true) {
+                        dlog(&handle, &format!("[Novaframe] main stick failed: {}", e));
+                    }
+                    if let Err(e) = window.set_focusable(false) {
+                        dlog(&handle, &format!("[Novaframe] main focus disable failed: {}", e));
+                    }
+                }
+                #[cfg(target_os = "linux")]
+                if was_visible {
+                    let _ = window.show();
                 }
                 if let Err(e) = window.set_ignore_cursor_events(true) {
                     dlog(&handle, &format!("[Novaframe] set_ignore_cursor_events failed: {}", e));
@@ -858,6 +1077,13 @@ fn main() {
             }
 
             if let Some(settings_window) = app.get_webview_window("settings") {
+                // Keep the settings cog available after virtual-desktop switches.
+                // Tauri maps this to GTK's stick() on Linux.
+                #[cfg(target_os = "linux")]
+                if let Err(e) = settings_window.set_visible_on_all_workspaces(true) {
+                    dlog(&handle, &format!("[Novaframe] settings stick failed: {}", e));
+                }
+
                 // WebView2 renders a `transparent: true` window's unpainted
                 // regions as OPAQUE unless the background color is explicitly set
                 // to fully transparent. Without this the 40px strip left of the
@@ -1007,7 +1233,23 @@ fn main() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![window::expand_settings_panel, window::collapse_settings_panel, set_settings_panel_locked, log_from_js, quit_engine, window::open_storefront_window, installer::handle_engine_apply, installer::check_theme_updates_rust, installer::get_themes_dir, installer::open_themes_folder, installer::unpack_pending_themes, system::get_hardware_id, set_autostart, get_autostart, power::get_wallpaper_paused, installer::delete_theme, power::set_battery_saver, deeplink::flush_pending_deeplink])
+        .invoke_handler(tauri::generate_handler![window::expand_settings_panel, window::collapse_settings_panel, set_settings_panel_locked, log_from_js, quit_engine, window::open_storefront_window, installer::handle_engine_apply, installer::check_theme_updates_rust, installer::get_themes_dir, installer::open_themes_folder, installer::unpack_pending_themes, system::get_hardware_id, set_autostart, get_autostart, power::get_wallpaper_paused, installer::delete_theme, power::set_battery_saver, deeplink::flush_pending_deeplink]);
+
+    #[cfg(target_os = "linux")]
+    builder
+        .build(tauri::generate_context!())
+        .expect("error while building Novaframe desktop runtime application")
+        .run(|_app, event| {
+            if matches!(
+                event,
+                tauri::RunEvent::Exit | tauri::RunEvent::ExitRequested { .. }
+            ) {
+                state::SHUTDOWN_SIGNAL.store(true, Ordering::Relaxed);
+            }
+        });
+
+    #[cfg(not(target_os = "linux"))]
+    builder
         .run(tauri::generate_context!())
         .expect("error while running Novaframe desktop runtime application");
 }

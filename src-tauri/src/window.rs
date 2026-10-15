@@ -270,7 +270,18 @@ pub fn adjust_window_layouts(app: &AppHandle) {
                 }
             }
 
+            // Reassert Linux EWMH hints after geometry changes: window managers
+            // can clear keep-below/workspace state while resizing the wallpaper.
+            #[cfg(target_os = "linux")]
+            {
+                let _ = window.set_always_on_bottom(true);
+                let _ = window.set_visible_on_all_workspaces(true);
+            }
+
             if let Some(settings_window) = app.get_webview_window("settings") {
+                #[cfg(target_os = "linux")]
+                let _ = settings_window.set_visible_on_all_workspaces(true);
+
                 let current_width = if let Ok(size) = settings_window.inner_size() {
                     size.to_logical::<f64>(scale_factor).width
                 } else {

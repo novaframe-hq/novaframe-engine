@@ -2464,6 +2464,7 @@ name = "novaframe_engine"
 version = "0.4.12"
 dependencies = [
  "futures-util",
+ "gtk",
  "machine-uid",
  "objc2",
  "objc2-app-kit",

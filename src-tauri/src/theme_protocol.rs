@@ -157,7 +157,17 @@ pub fn handle_theme_protocol(
         .and_then(|d| d.canonicalize().ok());
     // Local wallpaper source tree — only allowed in dev builds so a personal
     // path is never baked into shipped release binaries.
-    #[cfg(debug_assertions)]
+    #[cfg(all(debug_assertions, target_os = "linux"))]
+    let dev_root = std::env::var("NOVAFRAME_DEV_THEMES_DIR")
+        .ok()
+        .map(std::path::PathBuf::from)
+        .or_else(|| {
+            std::env::var("HOME")
+                .map(|home| std::path::PathBuf::from(home).join("Novaframe-Wallpapers"))
+                .ok()
+        })
+        .and_then(|path| path.canonicalize().ok());
+    #[cfg(all(debug_assertions, not(target_os = "linux")))]
     let dev_root = std::path::PathBuf::from("/Users/tdaeche/Novaframe-Wallpapers")
         .canonicalize()
         .ok();

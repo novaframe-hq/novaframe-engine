@@ -69,6 +69,19 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "linux": {
+      "deb": {
+        "depends": [
+          "xdg-utils",
+          "desktop-file-utils",
+          "x11-utils",
+          "libayatana-appindicator3-1 | libappindicator3-1"
+        ]
+      },
+      "rpm": {
+        "depends": ["xdg-utils", "desktop-file-utils", "xorg-x11-utils"]
+      }
+    },
     "macOS": {
       "infoPlist": "Info.plist",
       "entitlements": "entitlements.plist"
