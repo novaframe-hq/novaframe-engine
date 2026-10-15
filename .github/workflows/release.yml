@@ -6,10 +6,15 @@ on:
       - 'v*'
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   release:
     permissions:
       contents: write
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:

@@ -1,0 +1,136 @@
+name: Linux MVP
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Tauri Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libwebkit2gtk-4.1-dev \
+            xdg-utils \
+            desktop-file-utils \
+            x11-utils \
+            xvfb \
+            rpm \
+            libayatana-appindicator3-1
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Check Rust crate
+        run: cargo check --manifest-path src-tauri/Cargo.toml
+
+      - name: Test Rust crate
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: Build deb and rpm bundles
+        run: npm run tauri -- build --bundles deb,rpm
+
+      - name: Smoke-test Linux app startup under Xvfb
+        shell: bash
+        run: |
+          set -euo pipefail
+          xvfb-run -a bash -euo pipefail -c '
+            ./src-tauri/target/release/novaframe_engine &
+            app_pid=$!
+            cleanup() {
+              kill -TERM "$app_pid" 2>/dev/null || true
+              wait "$app_pid" 2>/dev/null || true
+            }
+            trap cleanup EXIT
+            sleep 5
+            kill -0 "$app_pid"
+          '
+
+      - name: Upload Linux installer bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-installers
+          if-no-files-found: error
+          path: |
+            src-tauri/target/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/rpm/*.rpm
+
+  regression:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Check Rust crate
+        run: cargo check --manifest-path src-tauri/Cargo.toml
+
+      - name: Test Rust crate
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+  regression-macos:
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Check Rust crate
+        run: cargo check --manifest-path src-tauri/Cargo.toml
+
+      - name: Test Rust crate
+        run: cargo test --manifest-path src-tauri/Cargo.toml
