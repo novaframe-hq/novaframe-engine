@@ -23,15 +23,6 @@ export function setLastKnownOcclusion(occluded) {
     _lastKnownOccluded = occluded;
 }
 
-export function applyThemeScope(manifest) {
-    const mode = manifest?.render_mode === 'internal-legacy' || !manifest
-        ? 'legacy'
-        : 'dynamic';
-    if (typeof document !== 'undefined' && document.documentElement) {
-        document.documentElement.dataset.themeScope = mode;
-    }
-}
-
 export function toggleWelcomeOverlay(show) {
     if (typeof document === 'undefined') return;
     const overlay = document.getElementById('welcomeOverlay');
@@ -110,7 +101,6 @@ export const ThemeManager = {
             this.currentThemePath = null;
             this.currentManifest = null;
             toggleWelcomeOverlay(true);
-            applyThemeScope(null);
             return;
         }
 
@@ -152,8 +142,6 @@ export const ThemeManager = {
             console.error(`[Novaframe] Unknown render_mode "${renderMode}", falling back to external-html`);
             await this.loadExternalHtml(themePath, manifest, configOverride);
         }
-
-        applyThemeScope(manifest);
     },
 
     async loadExternalHtml(themePath, manifest, configOverride) {

@@ -46,15 +46,6 @@ html, body {
     align-items: center;
 }
 
-canvas {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    display: block;
-}
-
 #safe-area-detector {
     position: absolute;
     top: 0;
@@ -327,13 +318,6 @@ html[data-mode="settings"] #onboardingOverlay { display: none !important; }
     color: #ffffff;
     letter-spacing: -0.01em;
 }
-.control-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-.control-row label { margin-bottom: 0; }
-
 /* Manifest-driven custom settings are appended as sibling .control-group divs
    with no margin between them (they only inherit spacing from the top-level
    `.panel-content > * + *` rule, which doesn't reach into this nested section).
@@ -414,10 +398,6 @@ html[data-mode="settings"] #onboardingOverlay { display: none !important; }
 .toggle-row input[type="checkbox"]:checked ~ .toggle-track .toggle-thumb {
     transform: translateX(18px);
 }
-
-/* Theme Scope Hiding */
-/* #legacySection was removed with the internal-legacy renderer — these rules
-   targeted an element that no longer exists in index.html. */
 
 /* Buttons */
 .btn-primary {
@@ -554,160 +534,6 @@ select option {
     to { transform: rotate(360deg); }
 }
 
-/* Range Slider */
-input[type="range"]#opacitySlider {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 100%;
-    background: transparent;
-    cursor: pointer;
-    margin: 8px 0;
-    box-sizing: border-box;
-}
-input[type="range"]#opacitySlider:focus { outline: none; }
-input[type="range"]#opacitySlider::-webkit-slider-runnable-track {
-    width: 100%;
-    height: 4px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 2px;
-    transition: background 0.3s;
-}
-input[type="range"]#opacitySlider:hover::-webkit-slider-runnable-track {
-    background: rgba(255, 255, 255, 0.15);
-}
-input[type="range"]#opacitySlider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    margin-top: -5px;
-    background: #00a2ff;
-    height: 14px;
-    width: 14px;
-    border-radius: 50%;
-    box-shadow: 0 0 8px rgba(0, 162, 255, 0.6);
-    transition: transform 0.1s, background-color 0.2s;
-}
-input[type="range"]#opacitySlider::-webkit-slider-thumb:hover {
-    transform: scale(1.25);
-    background: #33b5ff;
-}
-
-/* iOS Toggle */
-input[type="checkbox"]#analemmaToggle {
-    appearance: none;
-    -webkit-appearance: none;
-    width: 36px;
-    height: 20px;
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.1);
-    position: relative;
-    outline: none;
-    cursor: pointer;
-    transition: background 0.3s;
-    flex-shrink: 0;
-}
-input[type="checkbox"]#analemmaToggle:checked { background: #00a2ff; }
-input[type="checkbox"]#analemmaToggle::before {
-    content: "";
-    position: absolute;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    top: 2px;
-    left: 2px;
-    background: white;
-    transition: transform 0.3s;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-}
-input[type="checkbox"]#analemmaToggle:checked::before {
-    transform: translateX(16px);
-}
-
-/* Pin List */
-.pin-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 12px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    margin-bottom: 6px;
-    border-radius: 6px;
-    transition: background 0.2s, transform 0.2s;
-    box-sizing: border-box;
-}
-.pin-item:hover {
-    background: rgba(255, 255, 255, 0.06);
-    transform: translateY(-1px);
-}
-.pin-info {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    flex: 1;
-    min-width: 0;
-}
-.pin-name {
-    font-weight: 500;
-    color: #ffffff;
-    font-size: 13px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.pin-coords {
-    color: #7e8da8;
-    font-size: 11px;
-}
-.delete-btn {
-    background: none;
-    border: none;
-    color: rgba(255, 74, 74, 0.6);
-    cursor: pointer;
-    font-size: 16px;
-    padding: 2px 6px;
-    border-radius: 4px;
-    transition: color 0.2s, background-color 0.2s;
-}
-.delete-btn:hover {
-    color: #ff4a4a;
-    background-color: rgba(255, 74, 74, 0.1);
-}
-.add-pin-form {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    width: 100%;
-    box-sizing: border-box;
-}
-.add-pin-form input {
-    width: 100%;
-    padding: 8px 12px;
-    background: rgba(7, 10, 15, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: white;
-    border-radius: 6px;
-    font-size: 12px;
-    outline: none;
-    transition: border-color 0.2s, box-shadow 0.2s;
-    font-family: inherit;
-    box-sizing: border-box;
-}
-.add-pin-form input:focus {
-    border-color: #00a2ff;
-    box-shadow: 0 0 8px rgba(0, 162, 255, 0.2);
-}
-.add-pin-form .row {
-    display: flex;
-    gap: 6px;
-}
-/* Lat/Lon share the row evenly and are allowed to shrink below content width
-   so the pair never forces horizontal overflow. */
-.add-pin-form .row input {
-    flex: 1 1 0;
-    min-width: 0;
-    width: auto;
-}
-
 /* Manifest-driven custom settings (sliders, colour pickers, text) must fill the
    column and never spill past the panel edge. */
 #customSettingsSection { width: 100%; min-width: 0; }
@@ -754,29 +580,3 @@ input[type="checkbox"]#analemmaToggle:checked::before {
     cursor: pointer;
 }
 
-/* Scroll region for the pin list itself. */
-.settings-list {
-    width: 100%;
-    box-sizing: border-box;
-}
-#addPinBtn {
-    width: 100%;
-    padding: 10px;
-    background: linear-gradient(135deg, #00b0ff 0%, #0081ff 100%);
-    border: none;
-    color: white;
-    font-weight: 500;
-    font-family: inherit;
-    font-size: 13px;
-    border-radius: 6px;
-    cursor: pointer;
-    margin-top: 4px;
-    box-shadow: 0 4px 12px rgba(0, 129, 255, 0.2);
-    transition: transform 0.1s, filter 0.2s, box-shadow 0.2s;
-}
-#addPinBtn:hover {
-    filter: brightness(1.1);
-    box-shadow: 0 4px 16px rgba(0, 129, 255, 0.35);
-    transform: translateY(-1px);
-}
-#addPinBtn:active { transform: translateY(1px); }

@@ -2,18 +2,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
-export async function safeInvoke(cmd, args = {}, options = {}) {
-    const { silent = false, defaultValue = null } = options;
-    try {
-        return await invoke(cmd, args);
-    } catch (err) {
-        if (!silent) {
-            console.error(`[TauriBridge] IPC '${cmd}' failed:`, err);
-        }
-        return defaultValue;
-    }
-}
-
 export async function getThemesDir() {
     try {
         let themesDir = await invoke('get_themes_dir');
@@ -25,10 +13,6 @@ export async function getThemesDir() {
         console.error("[Novaframe] Failed to get appDataDir from Rust, falling back to local themes:", e);
         return 'themes';
     }
-}
-
-export async function getHardwareId() {
-    return await safeInvoke('get_hardware_id', {}, { silent: true, defaultValue: null });
 }
 
 export async function setIgnoreCursor(ignore) {

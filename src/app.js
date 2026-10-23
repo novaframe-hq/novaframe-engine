@@ -5,7 +5,7 @@ console.log("[Novaframe] bundle sentinel: novaframe-app-v0.4.0-settings-fix");
 // must come from these imports. esbuild bundles this into src/app.bundle.js.
 import { invoke } from '@tauri-apps/api/core';
 import { emit, listen } from '@tauri-apps/api/event';
-import { readDir, remove } from '@tauri-apps/plugin-fs';
+import { readDir } from '@tauri-apps/plugin-fs';
 import { Store } from '@tauri-apps/plugin-store';
 
 import {
@@ -14,7 +14,7 @@ import {
 } from './modules/constants.js';
 import { isMainWindow, isSettingsWindow } from './modules/windowEnv.js';
 
-import { getThemesDir, setIgnoreCursor } from './modules/tauriBridge.js';
+import { getThemesDir, setIgnoreCursor, reportJsError } from './modules/tauriBridge.js';
 
 
 
@@ -23,31 +23,6 @@ import { getThemesDir, setIgnoreCursor } from './modules/tauriBridge.js';
 // above it, since the panel is docked to the screen edge) — without this, the
 // Rust hover-poll loop sees the cursor leave the window bounds mid-selection
 import { setPanelLocked, initPanelLockDelegation } from './modules/panelLock.js';
-
-
-// Check and provision default theme inside system AppData on startup
-async function verifyAndProvisionAppData() {
-    try {
-        const themesDir = await getThemesDir();
-
-        // ── Fix #4: Clean up empty mercator-classic folder ────────────────────
-        // If mercator-classic was created empty (from a prior failed provision), remove it.
-        // An empty folder appears in the dropdown but has no manifest → always falls back to Internal-Legacy.
-        const mercatorPath = `${themesDir}/mercator-classic`;
-        try {
-            const files = await readDir(mercatorPath);
-            if (!files || files.length === 0) {
-                console.log("[Novaframe] Removing empty mercator-classic folder from AppData...");
-                await remove(mercatorPath, { recursive: true });
-            }
-        } catch (e) {
-            // Folder doesn't exist yet — that's fine
-        }
-
-    } catch (err) {
-        console.error("[Novaframe] Failed to verify AppData:", err);
-    }
-}
 
 
 
@@ -73,8 +48,6 @@ function initDualWindowSystem() {
         document.getElementById('container').style.display = 'none';
         document.body.style.backgroundColor = 'transparent';
         document.documentElement.style.backgroundColor = 'transparent';
-        // Apply current theme scope synchronously so the panel starts in the correct mode.
-        applyThemeScope(ThemeManager.currentManifest);
     }
 }
 
@@ -95,7 +68,7 @@ function initDualWindowSystem() {
 
 import {
     ThemeManager,
-    applyThemeScope,
+    toggleWelcomeOverlay,
     relayThemeSettingsToIframe,
     getLastKnownOcclusion,
     setLastKnownOcclusion
@@ -228,16 +201,6 @@ const ConfigManager = {
 function updateSettingsScope(themePath) {
     const selector = document.getElementById('themeSelector');
     if (selector) selector.value = themePath || '';
-    
-    let mode = 'internal-legacy'; // fallback
-    if (themePath && ThemeManager.manifestCache[themePath]) {
-        mode = ThemeManager.manifestCache[themePath].mode;
-    }
-    
-    const scope = (mode === 'internal-legacy') ? 'legacy' : 'dynamic';
-    const panel = document.getElementById('settingsPanel');
-    if (panel) panel.dataset.themeScope = scope;
-    document.documentElement.dataset.themeScope = scope;
 
     const customSettingsSection = document.getElementById('customSettingsSection');
     if (customSettingsSection) {
@@ -261,6 +224,15 @@ function updateSettingsScope(themePath) {
             const header = document.createElement('h4');
             header.textContent = 'Theme Settings';
             customSettingsSection.appendChild(header);
+
+            const postSetting = (id, val) => {
+                if (ThemeManager.currentIframe?.contentWindow) {
+                    ThemeManager.currentIframe.contentWindow.postMessage({
+                        type: 'novaframe-settings',
+                        settings: { [id]: val }
+                    }, '*');
+                }
+            };
 
             customSettings.forEach(setting => {
                 const group = document.createElement('div');
@@ -295,13 +267,7 @@ function updateSettingsScope(themePath) {
                         const val = e.target.value;
                         config.theme_settings[themePath][setting.id] = val;
                         ConfigManager.saveConfig();
-
-                        if (ThemeManager.currentIframe?.contentWindow) {
-                            ThemeManager.currentIframe.contentWindow.postMessage({
-                                type: 'novaframe-settings',
-                                settings: { [setting.id]: val }
-                            }, '*');
-                        }
+                        postSetting(setting.id, val);
                     });
 
                     group.appendChild(select);
@@ -318,13 +284,7 @@ function updateSettingsScope(themePath) {
                     btn.className = 'custom-action-btn';
                     btn.addEventListener('click', async () => {
                         // Optimistic local update (e.g. for the preview iframe in the settings window)
-                        if (ThemeManager.currentIframe?.contentWindow) {
-                            ThemeManager.currentIframe.contentWindow.postMessage({
-                                type: 'novaframe-settings',
-                                settings: { [setting.id]: true }
-                            }, '*');
-
-                        }
+                        postSetting(setting.id, true);
                         
                         // Broadcast to other windows (specifically the background underlay window)
                         try {
@@ -368,13 +328,7 @@ function updateSettingsScope(themePath) {
                         const val = e.target.checked;
                         config.theme_settings[themePath][setting.id] = val;
                         ConfigManager.saveConfig();
-
-                        if (ThemeManager.currentIframe?.contentWindow) {
-                            ThemeManager.currentIframe.contentWindow.postMessage({
-                                type: 'novaframe-settings',
-                                settings: { [setting.id]: val }
-                            }, '*');
-                        }
+                        postSetting(setting.id, val);
                     });
 
                     toggleLabel.appendChild(labelText);
@@ -404,14 +358,7 @@ function updateSettingsScope(themePath) {
                         const val = setting.type === 'range' ? parseFloat(e.target.value) : e.target.value;
                         config.theme_settings[themePath][setting.id] = val;
                         ConfigManager.saveConfig({ immediate: setting.type !== 'range' });
-
-                        // Live broadcast
-                        if (ThemeManager.currentIframe?.contentWindow) {
-                            ThemeManager.currentIframe.contentWindow.postMessage({
-                                type: 'novaframe-settings',
-                                settings: { [setting.id]: val }
-                            }, '*');
-                        }
+                        postSetting(setting.id, val);
                     });
 
                     if (setting.type === 'range') {
@@ -695,13 +642,10 @@ async function scanThemes() {
     
     selector.innerHTML = '<option value="" disabled selected>Select Wallpaper</option>';
     
-    const tauriFs = { readDir };
-    if (!tauriFs) return;
-    
     try {
         const themesDir = await getThemesDir();
         console.log("[Novaframe] Scanning themes directory:", themesDir);
-        const entries = await tauriFs.readDir(themesDir);
+        const entries = await readDir(themesDir);
         console.log("[Novaframe] Found entries:", entries);
         
         // Read all manifests in parallel — sequential awaits made panel-open
@@ -975,18 +919,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // created custom-setting controls too).
     initPanelLockDelegation();
 
-    // Apply initial scope before settings UI bootstraps so the panel renders correctly.
-    applyThemeScope();
-
-    // Surface uncaught JS errors to Rust logs (visible in `tauri dev` console)
-    // so we don't need DevTools attached to diagnose runtime failures.
-    const reportErr = (label, info) => {
-        invoke('log_from_js', {
-            message: `[${label}] ${info?.stack || info?.message || String(info)}`
-        }).catch(() => {});
-    };
-    window.addEventListener('error', (e) => reportErr('window.error', e.error || e.message));
-    window.addEventListener('unhandledrejection', (e) => reportErr('unhandledrejection', e.reason));
+    window.addEventListener('error', (e) => reportJsError('window.error', e.error || e.message));
+    window.addEventListener('unhandledrejection', (e) => reportJsError('unhandledrejection', e.reason));
 
     // Standalone Storage Fallback listener (cross-origin browser support)
     window.addEventListener('storage', (e) => {
@@ -1002,7 +936,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    await verifyAndProvisionAppData();
     await ConfigManager.init();
 
     // Register inter-window event listeners before window init so first-run
@@ -1090,7 +1023,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 import {
     checkAndInstallUpdate,
-    setWelcomeVisible,
     showOnboardingOnce,
     checkThemeContentUpdates
 } from './modules/updater.js';
@@ -1133,7 +1065,7 @@ if (isSettingsWindow()) {
 } else {
     setTimeout(() => {
         if (!ThemeManager.currentManifest) {
-            setWelcomeVisible(true);
+            toggleWelcomeOverlay(true);
         } else {
             showOnboardingOnce(config, () => ConfigManager.saveConfig());
         }

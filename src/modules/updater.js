@@ -89,12 +89,6 @@ export async function checkAndInstallUpdate({ silent }) {
     }
 }
 
-export function setWelcomeVisible(visible) {
-    const overlay = document.getElementById('welcomeOverlay');
-    if (!overlay) return;
-    overlay.style.display = visible && isMainWindow() ? 'flex' : 'none';
-}
-
 export async function showOnboardingOnce(config, saveConfigFn) {
     const overlay = document.getElementById('onboardingOverlay');
     if (!overlay) return;

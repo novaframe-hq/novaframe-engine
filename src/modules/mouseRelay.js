@@ -59,7 +59,3 @@ export function disableMouseRelay() {
         console.log('[Novaframe] Mouse relay DISABLED (saving mouse event CPU cycles)');
     }
 }
-
-export function isMouseRelayActive() {
-    return isAttached;
-}
