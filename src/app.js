@@ -425,12 +425,13 @@ async function initSettingsUI() {
                 // 3. If a new theme was installed, auto-select and activate it via ConfigManager
                 const installed = Array.isArray(results) ? results.find(r => r.status === 'installed') : null;
                 if (installed && installed.theme_path) {
-                    console.log('[Novaframe] Newly installed theme activated:', installed.theme_path);
-                    await ConfigManager.setTheme(installed.theme_path);
+                    const installedPath = installed.theme_path.replace(/\\/g, '/');
+                    console.log('[Novaframe] Newly installed theme activated:', installedPath);
+                    await ConfigManager.setTheme(installedPath);
                     if (selector) {
-                        selector.value = installed.theme_path;
+                        selector.value = installedPath;
                     }
-                    updateSettingsScope(installed.theme_path);
+                    updateSettingsScope(installedPath);
                 }
 
                 // 4. Signal main window to reload/apply wallpaper
@@ -958,7 +959,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     listen('theme-installed', async (event) => {
-        const absoluteThemePath = event.payload;
+        const absoluteThemePath = event.payload ? event.payload.replace(/\\/g, '/') : null;
         console.log("[Novaframe] Received theme-installed event with path:", absoluteThemePath);
         if (isSettingsWindow()) {
             await scanThemes();
