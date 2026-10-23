@@ -224,7 +224,7 @@ export const ThemeManager = {
 
         container.appendChild(iframe);
         this.currentIframe = iframe;
-        if (this.currentManifest?.interactive !== false) {
+        if (this.currentManifest?.interactive === true) {
             enableMouseRelay(() => ThemeManager.currentIframe);
         } else {
             disableMouseRelay();

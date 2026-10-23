@@ -5,7 +5,8 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 export async function getThemesDir() {
     try {
         let themesDir = await invoke('get_themes_dir');
-        if (themesDir.endsWith('/') || themesDir.endsWith('\\')) {
+        themesDir = themesDir.replace(/\\/g, '/');
+        if (themesDir.endsWith('/')) {
             themesDir = themesDir.slice(0, -1);
         }
         return themesDir;

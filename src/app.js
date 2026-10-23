@@ -27,10 +27,7 @@ import { setPanelLocked, initPanelLockDelegation } from './modules/panelLock.js'
 
 
 function initDualWindowSystem() {
-    const params = new URLSearchParams(window.location.search);
-    const mode = params.get('mode') || 'main';
-
-    if (mode === 'main') {
+    if (isMainWindow()) {
         document.getElementById('settingsPanel').style.display = 'none';
 
         setIgnoreCursor(true);
@@ -43,7 +40,7 @@ function initDualWindowSystem() {
             }
             ThemeManager.loadTheme(savedTheme);
         })().catch(err => console.error(err));
-    } else if (mode === 'settings') {
+    } else if (isSettingsWindow()) {
         // CONTROLS MODE: full-window settings panel (300x650 dock, docked right by Rust).
         document.getElementById('container').style.display = 'none';
         document.body.style.backgroundColor = 'transparent';
@@ -167,7 +164,8 @@ const ConfigManager = {
     },
     async setTheme(themePath) {
         // Normalize empty string to null so we have one canonical "no theme" value.
-        const next = themePath || null;
+        // Also normalize backslashes so Windows paths match selector and manifest cache keys.
+        const next = themePath ? themePath.replace(/\\/g, '/') : null;
 
         // Skip writes + emits when the value hasn't actually changed.
         // Without this, every theme-changed listener that calls setTheme in
@@ -500,7 +498,7 @@ function initDeleteThemeButton() {
         if (!themePath) return;
 
         const label = ThemeManager.manifestCache[themePath]?.label || 'this wallpaper';
-        const dirName = themePath.split('/').pop();
+        const dirName = themePath.split(/[/\\]/).pop();
 
         const ok = await confirmInPanel(
             `Remove "${label}" from this machine? You can re-apply it any time from My Vault.`,
@@ -730,8 +728,7 @@ async function scanThemes() {
                 }
             }
             await ConfigManager.setTheme(targetTheme);
-            const inSettingsWindow = window.location.search.includes('mode=settings');
-            if (!inSettingsWindow) {
+            if (isMainWindow()) {
                 ThemeManager.loadTheme(targetTheme);
             }
         }
@@ -926,11 +923,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.addEventListener('storage', (e) => {
         if (e.key === 'activeTheme') {
             const newTheme = e.newValue || null;
-            ThemeManager.loadTheme(newTheme);
+            if (isMainWindow()) {
+                ThemeManager.loadTheme(newTheme);
+            }
         } else if (e.key === 'novaframe_config') {
             try {
                 if (e.newValue) {
-                    config = JSON.parse(e.newValue);
+                    config = setConfig(JSON.parse(e.newValue));
                 }
             } catch (err) {}
         }
