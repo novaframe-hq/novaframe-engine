@@ -1,11 +1,14 @@
 # Novaframe Engine
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Storefront](https://img.shields.io/badge/Storefront-novaframe.co.uk-blueviolet.svg)](https://www.novaframe.co.uk)
 [![Tauri v2](https://img.shields.io/badge/Tauri-v2-orange.svg)](https://v2.tauri.app/)
 [![Rust](https://img.shields.io/badge/Rust-2021%20Edition-red.svg)](https://www.rust-lang.org/)
 [![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows-lightgrey.svg)]()
 
-Novaframe Engine is the native, ultra-lean desktop runtime for [Novaframe](https://novaframe.co.uk) live interactive wallpapers. Engineered with Tauri v2 and Rust, it anchors interactive web-driven canvases directly beneath desktop icons with near-zero idle resource consumption.
+Novaframe Engine is the open-source, ultra-lean desktop runtime for [Novaframe](https://www.novaframe.co.uk) live interactive wallpapers and creator marketplace. Engineered with Tauri v2 and Rust, it anchors interactive web-driven canvases directly beneath desktop icons with near-zero idle resource consumption.
+
+Browse and install interactive wallpapers at [novaframe.co.uk](https://www.novaframe.co.uk).
 
 ---
 
