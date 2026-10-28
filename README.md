@@ -5,6 +5,7 @@
 [![Tauri v2](https://img.shields.io/badge/Tauri-v2-orange.svg)](https://v2.tauri.app/)
 [![Rust](https://img.shields.io/badge/Rust-2021%20Edition-red.svg)](https://www.rust-lang.org/)
 [![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows-lightgrey.svg)]()
+[![Download Novaframe Dynamic Wallpaper Engine](https://a.fsdn.com/con/app/sf-download-button)](https://sourceforge.net/projects/novaframe-engine/files/latest/download)
 
 Novaframe Engine is the open-source, ultra-lean desktop runtime for [Novaframe](https://www.novaframe.co.uk) live interactive wallpapers and creator marketplace. Engineered with Tauri v2 and Rust, it anchors interactive web-driven canvases directly beneath desktop icons with near-zero idle resource consumption.
 
